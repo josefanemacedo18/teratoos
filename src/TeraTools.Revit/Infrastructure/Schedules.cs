@@ -18,6 +18,14 @@ public static class Schedules
         IEnumerable<string>? sortBy = null, bool itemized = true, OperationReport? report = null)
     {
         var vs = ViewSchedule.CreateSchedule(doc, new ElementId(category));
+        return Configure(doc, vs, name, fields, filters, sortBy, itemized, report);
+    }
+
+    /// <summary>Configura uma tabela já criada (ex.: lista de folhas).</summary>
+    public static ViewSchedule Configure(Document doc, ViewSchedule vs, string name, IEnumerable<Spec> fields,
+        IEnumerable<(string Field, ScheduleFilterType Type, string Value)>? filters = null,
+        IEnumerable<string>? sortBy = null, bool itemized = true, OperationReport? report = null)
+    {
         try
         {
             vs.Name = Lookup.UniqueViewName(doc, name);
