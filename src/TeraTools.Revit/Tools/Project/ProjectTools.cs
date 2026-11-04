@@ -121,18 +121,8 @@ public sealed class PresetManagerCommand : ToolCommand
     }
 }
 
-internal sealed class UseDestinationTypes : IDuplicateTypeNamesHandler
-{
-    public DuplicateTypeAction OnDuplicateTypeNamesFound(DuplicateTypeNamesHandlerArgs args) => DuplicateTypeAction.UseDestinationTypes;
-}
-
 public sealed class TransferOptions
 {
-    [Opt("Modelos de vista", "View templates", Group = "Padrões do Revit|Revit standards")] public bool Templates { get; set; } = true;
-    [Opt("Filtros de vista", "View filters", Group = "Padrões do Revit|Revit standards")] public bool Filters { get; set; } = true;
-    [Opt("Materiais", "Materials", Group = "Padrões do Revit|Revit standards")] public bool Materials { get; set; } = true;
-    [Opt("Padrões de preenchimento e de linha", "Fill and line patterns", Group = "Padrões do Revit|Revit standards")] public bool Patterns { get; set; } = true;
-    [Opt("Tipos de texto, cota e região preenchida", "Text, dimension and filled region types", Group = "Padrões do Revit|Revit standards")] public bool AnnotationTypes { get; set; } = true;
     [Opt("Tipos de parede, piso, forro e cobertura", "Wall, floor, ceiling and roof types", Group = "Padrões do Revit|Revit standards")] public bool HostTypes { get; set; }
     [Opt("Tabelas", "Schedules", Group = "Padrões do Revit|Revit standards")] public bool Schedules { get; set; }
     [Opt("Presets do projeto", "Project presets", Group = "Téra Tools")] public bool Presets { get; set; } = true;
@@ -141,10 +131,10 @@ public sealed class TransferOptions
 }
 
 [Transaction(TransactionMode.Manual)]
-[Tool("proj.transfer", Modules.Project, "Transferir padrões entre projetos", "Transfer standards between projects", Order = 12,
-    DescPt = "Copia de outro projeto aberto os modelos de vista, filtros, materiais, padrões, tipos, tabelas e as configurações do Téra Tools (presets, regras, temas).",
+[Tool("proj.transfer", Modules.Project, "Transferir configurações do Téra Tools", "Transfer Téra Tools settings", Order = 12,
+    DescPt = "Copia de outro projeto aberto (ou do seu arquivo-modelo) as configurações do Téra Tools guardadas no arquivo: presets do projeto, regras de verificação, regras de marcenaria e temas.",
     DescEn = "Copies from another open project the view templates, filters, materials, patterns, types, schedules and Téra Tools settings (presets, rules, themes).",
-    HelpPt = "Abra o projeto de origem (ou o seu arquivo-modelo) no Revit, volte ao projeto de destino e rode a ferramenta. Itens com o mesmo nome no destino são mantidos (não são sobrescritos).",
+    HelpPt = "Abra o projeto de origem no Revit, volte ao projeto de destino e rode a ferramenta. Para modelos de vista, filtros, materiais e tipos use o comando nativo Gerenciar ▸ Transferir padrões de projeto.",
     HelpEn = "Open the source project (or your template file) in Revit, return to the target project and run the tool. Items with the same name in the target are kept (not overwritten).",
     Keywords = "transferir padroes projeto modelos de vista filtros materiais template transfer standards")]
 public sealed class TransferCommand : ToolCommand
@@ -157,44 +147,8 @@ public sealed class TransferCommand : ToolCommand
         var src = Pick.One(sources, d => d.Title, ctx.Tool.Name, Loc.T("Copiar padrões de qual projeto?", "Copy standards from which project?"), ctx.Owner);
         if (src == null) ctx.Cancel();
         var o = ctx.Ask<TransferOptions>();
-        var ids = new List<(string Group, ICollection<ElementId> Ids)>();
-        void Add(string group, IEnumerable<Element> els)
-        {
-            var list = els.Select(e => e.Id).ToList();
-            if (list.Count > 0) ids.Add((group, list));
-        }
-        if (o.Templates) Add(Loc.T("Modelos de vista", "View templates"), Lookup.Collect<View>(src!).Where(v => v.IsTemplate));
-        if (o.Filters) Add(Loc.T("Filtros", "Filters"), Lookup.Collect<ParameterFilterElement>(src!));
-        if (o.Materials) Add(Loc.T("Materiais", "Materials"), Lookup.Collect<Material>(src!));
-        if (o.Patterns)
-        {
-            Add(Loc.T("Padrões de preenchimento", "Fill patterns"), Lookup.Collect<FillPatternElement>(src!));
-            Add(Loc.T("Padrões de linha", "Line patterns"), Lookup.Collect<LinePatternElement>(src!));
-        }
-        if (o.AnnotationTypes)
-        {
-            Add(Loc.T("Tipos de texto", "Text types"), Lookup.Collect<TextNoteType>(src!));
-            Add(Loc.T("Tipos de cota", "Dimension types"), Lookup.Collect<DimensionType>(src!).Where(d => d.StyleType == DimensionStyleType.Linear || d.StyleType == DimensionStyleType.Angular));
-            Add(Loc.T("Tipos de região preenchida", "Filled region types"), Lookup.Collect<FilledRegionType>(src!));
-        }
-        if (o.HostTypes) Add(Loc.T("Tipos de sistema", "System types"), Lookup.Collect<HostObjAttributes>(src!));
-        if (o.Schedules) Add(Loc.T("Tabelas", "Schedules"), Lookup.Collect<ViewSchedule>(src!).Where(v => !v.IsTemplate && !v.IsTitleblockRevisionSchedule && !v.IsInternalKeynoteSchedule && v.Definition.CategoryId != ElementId.InvalidElementId));
         ctx.Modify(ctx.Tool.Name, () =>
         {
-            var cpo = new CopyPasteOptions();
-            cpo.SetDuplicateTypeNamesHandler(new UseDestinationTypes());
-            foreach (var (group, list) in ids)
-            {
-                try
-                {
-                    var copied = ElementTransformUtils.CopyElements(src!, list, doc, Transform.Identity, cpo);
-                    ctx.Report.Count(group, copied.Count);
-                }
-                catch (Exception ex)
-                {
-                    ctx.Report.Warn(group + ": " + ex.Message);
-                }
-            }
             var s = ProjectStorage.Load(src!);
             var d = ProjectStorage.Load(doc);
             var keys = new List<string>();
@@ -212,6 +166,10 @@ public sealed class TransferCommand : ToolCommand
             {
                 ProjectStorage.Save(doc, d);
                 ctx.Report.Count(Loc.T("Configurações do Téra Tools", "Téra Tools settings"), n);
+            }
+            else
+            {
+                ctx.Report.Info(Loc.T("O projeto de origem não tem essas configurações do Téra Tools.", "The source project has none of these Téra Tools settings."));
             }
         });
     }

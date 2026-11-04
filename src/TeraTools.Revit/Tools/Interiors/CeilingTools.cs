@@ -336,6 +336,7 @@ public sealed class CeilingOpeningCommand : ToolCommand
         var o = ctx.Ask<CeilingOpeningOptions>();
         var finder = new CeilingFinder(doc);
         if (finder.Count == 0) ToolContext.Fail("Não há forros no projeto.", "There are no ceilings in the project.");
+        var made = new Dictionary<long, List<Polygon2>>();
         ctx.Modify(ctx.Tool.Name, () =>
         {
             foreach (var it in items)
@@ -350,6 +351,14 @@ public sealed class CeilingOpeningCommand : ToolCommand
                     continue;
                 }
                 var (ceiling, _, z) = hit.Value;
+                // Evita furos sobrepostos no mesmo forro (o Revit recusa e o furo some).
+                var area = fp.Outline.EnsureCounterClockwise().Offset(o.Margin + U.Mm(5));
+                if (!made.TryGetValue(ceiling.Id.Value, out var done)) made[ceiling.Id.Value] = done = new List<Polygon2>();
+                if (done.Any(d => PolygonOps.Intersects(d, area, 1e-6)))
+                {
+                    ctx.Report.Warn(Loc.F("\"{0}\" fica sobre outro furo já aberto e foi ignorado.", "\"{0}\" overlaps an opening already cut and was skipped.", fp.Name), it.Id.Value);
+                    continue;
+                }
                 var profile = new CurveArray();
                 switch (o.Shape)
                 {
@@ -387,6 +396,7 @@ public sealed class CeilingOpeningCommand : ToolCommand
                 try
                 {
                     var op = doc.Create.NewOpening(ceiling, profile, true);
+                    done.Add(area);
                     ctx.Report.Created();
                     ctx.Report.AddResult(op.Id.Value);
                 }

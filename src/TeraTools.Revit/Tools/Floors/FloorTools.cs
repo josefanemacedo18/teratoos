@@ -482,6 +482,14 @@ public sealed class PagingCommand : ToolCommand
                 summary.Add(result.Summary(label));
                 foreach (var sl in result.Slivers.Take(50))
                     ctx.Report.Warn(Loc.F("{0}: recorte de {1} (abaixo do mínimo).", "{0}: {1} cut (below minimum).", label, U.FormatCm(sl.MinPieceSize)), job.Host.Id.Value);
+                var pieceCount = result.FullCount + result.CutCount;
+                if (pieceCount > ctx.Settings.ElementWarningThreshold * 2)
+                {
+                    // A divisão em partes é pesada: milhares de peças num único elemento travam o Revit.
+                    ctx.Report.Warn(Loc.F("{0}: {1} peças é demais para dividir com segurança. Aumente o tamanho da peça ou pagine por ambiente menor.",
+                        "{0}: {1} pieces is too many to divide safely. Increase piece size or page a smaller area.", label, pieceCount), job.Host.Id.Value);
+                    continue;
+                }
                 List<Part> parts;
                 try
                 {

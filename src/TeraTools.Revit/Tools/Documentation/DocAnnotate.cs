@@ -17,29 +17,17 @@ using TeraTools.Revit.Ui;
 
 namespace TeraTools.Revit.Tools.Documentation;
 
-public enum DimMode
-{
-    [Text("Medidas internas dos ambientes (largura e comprimento)", "Room interior sizes (width and length)")] Rooms,
-    [Text("Paredes com vãos (cotas encadeadas)", "Walls with openings (chained dimensions)")] Walls,
-}
-
 public sealed class DimOptions
 {
-    [Opt("O que cotar", "What to dimension")]
-    public DimMode Mode { get; set; } = DimMode.Rooms;
-
-    [Opt("Afastamento da parede", "Distance from wall", Kind = OptKind.Length, Min = 0, VisibleIf = "Mode=Walls")]
-    public double Offset { get; set; } = U.Mm(600);
-
     [Opt("Tipo de cota (vazio = padrão)", "Dimension type (empty = default)", Kind = OptKind.DimensionType)]
     public string DimensionType { get; set; } = "";
 }
 
 [Transaction(TransactionMode.Manual)]
-[Tool("doc.dims", Modules.Documentation, "Cotas automáticas", "Automatic dimensions", Order = 40, Group = "Anotação|Annotation",
-    DescPt = "Cota automaticamente a largura e o comprimento internos dos ambientes ou as paredes com seus vãos (portas e janelas), na planta ativa.",
+[Tool("doc.dims", Modules.Documentation, "Cotas internas dos ambientes", "Room interior dimensions", Order = 40, Group = "Anotação|Annotation",
+    DescPt = "Cota automaticamente a largura e o comprimento internos de cada ambiente, de face a face de parede, alinhados às paredes — em todos os ambientes da vista de uma vez.",
     DescEn = "Automatically dimensions room interior width and length, or walls with their openings (doors and windows), in the active plan.",
-    HelpPt = "As cotas são associativas (referenciam as faces das paredes e os eixos das aberturas): se a parede mudar, a cota acompanha. Paredes curvas são ignoradas.",
+    HelpPt = "As cotas são associativas (referenciam as faces de acabamento das paredes): se a parede mudar, a cota acompanha. Para cotar paredes com portas e janelas use a Cota alinhada nativa do Revit (opção Paredes inteiras com aberturas). Ambientes com paredes curvas na direção da cota são ignorados.",
     HelpEn = "Dimensions are associative (they reference wall faces and opening references): they follow wall changes. Curved walls are skipped.",
     Keywords = "cotas automaticas cotar ambiente parede vaos dimensions automatic room wall openings")]
 public sealed class DimsCommand : ToolCommand
@@ -52,19 +40,10 @@ public sealed class DimsCommand : ToolCommand
         var doc = ctx.Doc;
         var dimType = string.IsNullOrWhiteSpace(o.DimensionType) ? null : Lookup.Named<DimensionType>(doc, o.DimensionType);
         var z = RevitGeo.ViewLevel(view)?.Elevation ?? 0;
-        if (o.Mode == DimMode.Rooms)
-        {
-            var rooms = RoomUtil.SelectedOrInView(ctx).Where(r => r.Area > 0).ToList();
-            ctx.Modify(ctx.Tool.Name, () =>
-            {
-                foreach (var room in rooms) DimensionRoom(ctx, room, view, z, dimType);
-            });
-            return;
-        }
-        var walls = ctx.SelectedOrPick("Selecione as paredes", "Select the walls", e => e is Wall { Location: LocationCurve { Curve: Line } }).OfType<Wall>().ToList();
+        var rooms = RoomUtil.SelectedOrInView(ctx).Where(r => r.Area > 0).ToList();
         ctx.Modify(ctx.Tool.Name, () =>
         {
-            foreach (var w in walls) DimensionWall(ctx, w, view, z, o.Offset, dimType);
+            foreach (var room in rooms) DimensionRoom(ctx, room, view, z, dimType);
         });
     }
 
@@ -154,60 +133,6 @@ public sealed class DimsCommand : ToolCommand
         return bestD < 0.1 ? best : null;
     }
 
-    private static void DimensionWall(ToolContext ctx, Wall wall, View view, double z, double offset, DimensionType? type)
-    {
-        var doc = ctx.Doc;
-        var line = (Line)((LocationCurve)wall.Location).Curve;
-        var dir = line.Direction.Normalize();
-        var p0 = line.GetEndPoint(0);
-        var items = new List<(double S, Reference R)>();
-        foreach (var s in RevitGeo.Solids(wall, RevitGeo.GeometryOptions(references: true)))
-            foreach (Face f in s.Faces)
-                if (f is PlanarFace pf && Math.Abs(pf.FaceNormal.DotProduct(dir)) > 0.99 && pf.Reference != null)
-                    items.Add(((pf.Origin - p0).DotProduct(dir), pf.Reference));
-        var ends = new List<(double S, Reference R)>();
-        if (items.Count >= 2)
-        {
-            ends.Add(items.OrderBy(i => i.S).First());
-            ends.Add(items.OrderBy(i => i.S).Last());
-        }
-        var refs = new List<(double S, Reference R)>(ends);
-        foreach (var id in wall.FindInserts(true, false, false, false))
-        {
-            if (doc.GetElement(id) is not FamilyInstance fi || fi.Location is not LocationPoint lp) continue;
-            var s = (lp.Point - p0).DotProduct(dir);
-            var left = fi.GetReferences(FamilyInstanceReferenceType.Left).FirstOrDefault();
-            var right = fi.GetReferences(FamilyInstanceReferenceType.Right).FirstOrDefault();
-            var w = fi.get_Parameter(BuiltInParameter.DOOR_WIDTH)?.AsDouble() ?? fi.Symbol.get_Parameter(BuiltInParameter.FAMILY_WIDTH_PARAM)?.AsDouble() ?? 0;
-            if (left != null) refs.Add((s - w / 2, left));
-            if (right != null) refs.Add((s + w / 2, right));
-            if (left == null && right == null && fi.GetReferences(FamilyInstanceReferenceType.CenterLeftRight).FirstOrDefault() is { } center) refs.Add((s, center));
-        }
-        if (refs.Count < 2)
-        {
-            ctx.Report.Info(Loc.F("Parede {0}: sem referências suficientes para cotar.", "Wall {0}: not enough references to dimension.", wall.Id.Value), wall.Id.Value);
-            return;
-        }
-        var ra = new ReferenceArray();
-        foreach (var r in refs.OrderBy(r => r.S)) ra.Append(r.R);
-        var normal = wall.Orientation.Normalize();
-        var shift = normal * (wall.Width / 2 + offset);
-        var a = new XYZ(p0.X, p0.Y, z) + shift;
-        var b = new XYZ(line.GetEndPoint(1).X, line.GetEndPoint(1).Y, z) + shift;
-        try
-        {
-            var dim = Create(doc, view, Line.CreateBound(a, b), ra, type);
-            if (dim != null)
-            {
-                ctx.Report.Created();
-                ctx.Report.AddResult(dim.Id.Value);
-            }
-        }
-        catch (Exception ex)
-        {
-            ctx.Report.Warn(Loc.F("Parede {0}: {1}", "Wall {0}: {1}", wall.Id.Value, ex.Message), wall.Id.Value);
-        }
-    }
 }
 
 public enum LegendSource

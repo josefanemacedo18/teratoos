@@ -103,10 +103,16 @@ public enum AxisChoice
 
 public enum DistributeMode
 {
-    [Text("Centros com espaçamento igual (mantém extremos)", "Equal center spacing (keep extremes)")] EqualCenters,
-    [Text("Vãos iguais entre elementos (mantém extremos)", "Equal gaps between elements (keep extremes)")] EqualGaps,
-    [Text("Espaçamento fixo entre centros", "Fixed center spacing")] FixedSpacing,
-    [Text("Vão fixo entre elementos", "Fixed gap between elements")] FixedGap,
+    [Text("Espaçamento igual entre pontos (mantém o primeiro e o último)", "Equal spacing between points (keep first and last)")] EqualCenters,
+    [Text("Vãos livres iguais entre elementos (mantém extremos)", "Equal clear gaps between elements (keep extremes)")] EqualGaps,
+    [Text("Espaçamento fixo entre pontos", "Fixed spacing between points")] FixedSpacing,
+    [Text("Vão livre fixo entre elementos", "Fixed clear gap between elements")] FixedGap,
+}
+
+public enum DistributeReference
+{
+    [Text("Ponto de inserção (exato)", "Insertion point (exact)")] Insertion,
+    [Text("Centro da geometria real", "Real geometry center")] Geometry,
 }
 
 public sealed class DistributeOptions
@@ -117,87 +123,145 @@ public sealed class DistributeOptions
     [Opt("Modo", "Mode")]
     public DistributeMode Mode { get; set; } = DistributeMode.EqualCenters;
 
+    [Opt("Ponto de referência", "Reference point", VisibleIf = "Mode=EqualCenters,FixedSpacing",
+        Tip = "Ponto de inserção = o ponto da família/linha de locação (o mais preciso). Os modos de vão usam sempre a geometria real.|Insertion point is the most precise. Gap modes always use real geometry.")]
+    public DistributeReference Reference { get; set; } = DistributeReference.Insertion;
+
     [Opt("Valor (espaçamento/vão)", "Value (spacing/gap)", Kind = OptKind.Length, Min = 0, VisibleIf = "Mode=FixedSpacing,FixedGap")]
     public double Value { get; set; } = U.Mm(600);
 }
 
+internal static class GeoExtent
+{
+    /// <summary>Extensão exata ao longo do eixo pelos vértices dos sólidos (não usa a caixa envolvente).</summary>
+    public static (double Min, double Max)? Of(Element e, XYZ axis)
+    {
+        double min = double.MaxValue, max = double.MinValue;
+        foreach (var s in RevitGeo.Solids(e))
+            foreach (Edge edge in s.Edges)
+                foreach (var p in edge.Tessellate())
+                {
+                    var v = p.DotProduct(axis);
+                    if (v < min) min = v;
+                    if (v > max) max = v;
+                }
+        if (min == double.MaxValue && e.Location is LocationCurve lc)
+            foreach (var p in lc.Curve.Tessellate())
+            {
+                var v = p.DotProduct(axis);
+                min = Math.Min(min, v);
+                max = Math.Max(max, v);
+            }
+        return min == double.MaxValue ? null : (min, max);
+    }
+}
+
 [Transaction(TransactionMode.Manual)]
 [Tool("modeling.distribute", Modules.Modeling, "Distribuir", "Distribute", Order = 20, Large = true,
-    DescPt = "Distribui elementos uniformemente (centros ou vãos iguais) ou com espaçamento fixo.",
-    DescEn = "Distributes elements evenly (equal centers or gaps) or with fixed spacing.",
-    HelpPt = "Os elementos são ordenados pela posição na direção escolhida. Nos modos 'iguais', o primeiro e o último ficam no lugar; nos modos 'fixos', o primeiro fica no lugar e os demais são reposicionados.",
-    HelpEn = "Elements are sorted by position along the chosen direction. In 'equal' modes the first and last stay; in 'fixed' modes the first stays and the others move.",
-    Keywords = "distribuir espacamento igual distribute spacing")]
+    DescPt = "Distribui móveis, luminárias, painéis e outros elementos com espaçamento igual, vão livre igual ou valores fixos — medindo pelo ponto de inserção ou pela geometria real.",
+    DescEn = "Distributes furniture, fixtures, panels and other elements with equal spacing, equal clear gap or fixed values — measured by insertion point or real geometry.",
+    HelpPt = "1. Selecione 2 ou mais elementos.\n2. Escolha a direção (horizontal/vertical da vista ou altura) e o modo.\n3. Confira a pré-visualização: cinza = posição atual, laranja = nova posição.\n\nModos 'iguais': o primeiro e o último ficam onde estão. Modos 'fixos': o primeiro fica e os demais se ajustam. Elementos fixados (pin) são ignorados e listados.\n\nO Revit não tem comando de distribuir: esta ferramenta mede pelo ponto de inserção (exato) ou pelos vértices da geometria real — nunca pela caixa envolvente.",
+    HelpEn = "Select 2+ elements, choose direction and mode, check the preview (gray = current, orange = new). Pinned elements are skipped.",
+    Keywords = "distribuir espacamento igual vao distribute spacing equal gap")]
 public sealed class DistributeCommand : ToolCommand
 {
+    private sealed record Item(Element E, double Ref, double Min, double Max, XYZ Anchor);
+
     public override void Run(ToolContext ctx)
     {
-        var els = Xf.Pick(ctx);
-        if (els.Count < 2) ToolContext.Fail("Selecione pelo menos 2 elementos.", "Select at least 2 elements.");
-        var o = ctx.Ask<DistributeOptions>();
-        var axis = Xf.Axis(ctx.ActiveView, o.Axis);
-        var items = els.Select(e => (E: e, Ext: Xf.Extent(e, axis))).OrderBy(x => (x.Ext.Min + x.Ext.Max) / 2).ToList();
+        var all = Xf.Pick(ctx);
+        var pinned = all.Where(e => e.Pinned).ToList();
+        foreach (var e in pinned) ctx.Report.Info(Loc.F("Fixado (pin), ignorado: {0}", "Pinned, skipped: {0}", Lookup.ElementLabel(e)), e.Id.Value);
+        var els = all.Where(e => !e.Pinned).ToList();
+        if (els.Count < 2) ToolContext.Fail("Selecione pelo menos 2 elementos não fixados.", "Select at least 2 unpinned elements.");
+        var view = ctx.ActiveView;
+        var o = ctx.Ask<DistributeOptions>(preview: x => Preview(view, els, x));
+        var (axis, items, deltas) = Plan(view, els, o);
+        ctx.Modify(ctx.Tool.Name, () =>
+        {
+            for (var i = 0; i < items.Count; i++)
+                Xf.TryMove(ctx.Doc, items[i].E, axis * deltas[i], ctx);
+        });
+    }
+
+    private static (XYZ Axis, List<Item> Items, double[] Deltas) Plan(View view, List<Element> els, DistributeOptions o)
+    {
+        var axis = Xf.Axis(view, o.Axis);
+        var useGeometry = o.Mode is DistributeMode.EqualGaps or DistributeMode.FixedGap || o.Reference == DistributeReference.Geometry;
+        var items = new List<Item>();
+        foreach (var e in els)
+        {
+            var anchor = RevitGeo.Anchor(e) ?? XYZ.Zero;
+            var ext = GeoExtent.Of(e, axis);
+            var (mn, mx) = ext ?? (anchor.DotProduct(axis), anchor.DotProduct(axis));
+            var r = useGeometry ? (mn + mx) / 2 : anchor.DotProduct(axis);
+            items.Add(new Item(e, r, mn, mx, anchor));
+        }
+        items = items.OrderBy(x => x.Ref).ToList();
         var n = items.Count;
-        var targets = new double[n]; // nova posição do início (Min) de cada elemento
+        var d = new double[n];
         switch (o.Mode)
         {
             case DistributeMode.EqualCenters:
-            {
-                var c0 = (items[0].Ext.Min + items[0].Ext.Max) / 2;
-                var c1 = (items[^1].Ext.Min + items[^1].Ext.Max) / 2;
-                for (var i = 0; i < n; i++)
-                {
-                    var half = (items[i].Ext.Max - items[i].Ext.Min) / 2;
-                    targets[i] = c0 + (c1 - c0) * i / (n - 1) - half;
-                }
+                for (var i = 0; i < n; i++) d[i] = items[0].Ref + (items[^1].Ref - items[0].Ref) * i / (n - 1) - items[i].Ref;
                 break;
-            }
+            case DistributeMode.FixedSpacing:
+                for (var i = 0; i < n; i++) d[i] = items[0].Ref + i * o.Value - items[i].Ref;
+                break;
             case DistributeMode.EqualGaps:
             {
-                var total = items[^1].Ext.Max - items[0].Ext.Min;
-                var widths = items.Sum(x => x.Ext.Max - x.Ext.Min);
-                var gap = (total - widths) / (n - 1);
-                var pos = items[0].Ext.Min;
+                var total = items[^1].Max - items[0].Min;
+                var gap = (total - items.Sum(x => x.Max - x.Min)) / (n - 1);
+                var pos = items[0].Min;
                 for (var i = 0; i < n; i++)
                 {
-                    targets[i] = pos;
-                    pos += items[i].Ext.Max - items[i].Ext.Min + gap;
+                    d[i] = pos - items[i].Min;
+                    pos += items[i].Max - items[i].Min + gap;
                 }
-                break;
-            }
-            case DistributeMode.FixedSpacing:
-            {
-                var c0 = (items[0].Ext.Min + items[0].Ext.Max) / 2;
-                for (var i = 0; i < n; i++)
-                    targets[i] = c0 + i * o.Value - (items[i].Ext.Max - items[i].Ext.Min) / 2;
                 break;
             }
             default:
             {
-                var pos = items[0].Ext.Min;
+                var pos = items[0].Min;
                 for (var i = 0; i < n; i++)
                 {
-                    targets[i] = pos;
-                    pos += items[i].Ext.Max - items[i].Ext.Min + o.Value;
+                    d[i] = pos - items[i].Min;
+                    pos += items[i].Max - items[i].Min + o.Value;
                 }
                 break;
             }
         }
-        ctx.Modify(ctx.Tool.Name, () =>
+        return (axis, items, d);
+    }
+
+    private static PreviewModel Preview(View view, List<Element> els, DistributeOptions o)
+    {
+        var (axis, items, d) = Plan(view, els, o);
+        var pm = new PreviewModel();
+        var right = Xf.Axis(view, AxisChoice.ViewHorizontal);
+        var up = RevitGeo.IsPlanLike(view) ? Xf.Axis(view, AxisChoice.ViewVertical) : XYZ.BasisZ;
+        Core.Geometry.Vec2 P(XYZ p) => new(p.DotProduct(right), p.DotProduct(up));
+        var size = Math.Max(U.Mm(80), (items[^1].Max - items[0].Min) / 60);
+        for (var i = 0; i < items.Count; i++)
         {
-            for (var i = 0; i < n; i++)
-                Xf.TryMove(ctx.Doc, items[i].E, axis * (targets[i] - items[i].Ext.Min), ctx);
-        });
+            var a = P(items[i].Anchor);
+            var b = P(items[i].Anchor + axis * d[i]);
+            pm.Line(a, b, "#9AA3AE", 0.8);
+            pm.Dot(a, size, "#9AA3AE");
+            pm.Dot(b, size, "#B5652B");
+        }
+        var moved = d.Count(x => Math.Abs(x) > 1e-6);
+        pm.Info = Loc.F("{0} elementos · {1} serão movidos · maior deslocamento {2}", "{0} elements · {1} will move · largest move {2}",
+            items.Count, moved, U.FormatMm(d.Length == 0 ? 0 : d.Max(Math.Abs)));
+        return pm;
     }
 }
 
 // =====================================================================================
 
-// =====================================================================================
-
 public enum RotatePivot
 {
-    [Text("Centro de cada elemento", "Center of each element")] EachCenter,
+    [Text("Ponto de inserção de cada elemento (gira no lugar)", "Insertion point of each element (rotate in place)")] EachCenter,
     [Text("Centro do conjunto", "Center of the set")] SetCenter,
     [Text("Ponto escolhido", "Picked point")] PickPoint,
 }
@@ -239,14 +303,18 @@ internal static class RotateTools
 
 [Transaction(TransactionMode.Manual)]
 [Tool("modeling.rotate", Modules.Modeling, "Rotacionar", "Rotate", Order = 41, Group = "Transformar|Transform",
-    DescPt = "Gira elementos em torno do próprio centro, do centro do conjunto ou de um ponto, com variação aleatória opcional.",
+    DescPt = "Gira vários elementos de uma vez, cada um no próprio ponto de inserção (o que o Revit não faz), em torno do conjunto ou de um ponto, com variação aleatória opcional.",
+    HelpPt = "Útil para girar cadeiras, luminárias e vegetação no lugar. Com 'variação aleatória' cada elemento recebe um ângulo diferente (estável pela semente). Elementos fixados (pin) são ignorados.",
     DescEn = "Rotates elements about their own center, the set center or a point, with optional random variation.",
     Keywords = "rotacionar girar rotate angulo")]
 public sealed class RotateCommand : ToolCommand
 {
     public override void Run(ToolContext ctx)
     {
-        var els = Xf.Pick(ctx);
+        var all = Xf.Pick(ctx);
+        foreach (var e in all.Where(e => e.Pinned)) ctx.Report.Info(Loc.F("Fixado (pin), ignorado: {0}", "Pinned, skipped: {0}", Lookup.ElementLabel(e)), e.Id.Value);
+        var els = all.Where(e => !e.Pinned).ToList();
+        if (els.Count == 0) ToolContext.Fail("Nenhum elemento não fixado selecionado.", "No unpinned element selected.");
         var o = ctx.Ask<RotateOptions>();
         XYZ? picked = o.Pivot == RotatePivot.PickPoint ? ctx.PickPoint("Clique no pivô da rotação", "Click the rotation pivot") : null;
         ctx.Modify(ctx.Tool.Name, () =>
