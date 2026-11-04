@@ -126,18 +126,27 @@ public class ExportAndSettingsTests
         t.AddRow("Mesa", 1, 1200);
         var path = TempFile(".xlsx");
         XlsxWriter.Write(path, t, new TableData("Mobiliário"));
-        using var zip = ZipFile.OpenRead(path);
-        var names = zip.Entries.Select(e => e.FullName).ToList();
-        Assert.Contains("xl/workbook.xml", names);
-        Assert.Contains("xl/worksheets/sheet2.xml", names);
-        using var r = new StreamReader(zip.GetEntry("xl/worksheets/sheet1.xml")!.Open());
-        var xml = r.ReadToEnd();
-        Assert.Contains("Cadeira &lt;A&amp;B&gt;", xml);
-        System.Xml.Linq.XDocument.Parse(xml);
-        using var wb = new StreamReader(zip.GetEntry("xl/workbook.xml")!.Open());
-        var wbXml = wb.ReadToEnd();
-        Assert.Contains("Mobiliário (2)", wbXml);
-        File.Delete(path);
+        try
+        {
+            using (var zip = ZipFile.OpenRead(path))
+            {
+                var names = zip.Entries.Select(e => e.FullName).ToList();
+                Assert.Contains("xl/workbook.xml", names);
+                Assert.Contains("xl/worksheets/sheet2.xml", names);
+                string xml;
+                using (var r = new StreamReader(zip.GetEntry("xl/worksheets/sheet1.xml")!.Open())) xml = r.ReadToEnd();
+                Assert.Contains("Cadeira &lt;A&amp;B&gt;", xml);
+                System.Xml.Linq.XDocument.Parse(xml);
+                string wbXml;
+                using (var wb = new StreamReader(zip.GetEntry("xl/workbook.xml")!.Open())) wbXml = wb.ReadToEnd();
+                Assert.Contains("Mobiliário (2)", wbXml);
+            }
+        }
+        finally
+        {
+            // No Windows o arquivo precisa estar fechado antes de ser apagado.
+            File.Delete(path);
+        }
     }
 
     [Fact]
