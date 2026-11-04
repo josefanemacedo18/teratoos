@@ -56,7 +56,7 @@ public static class GenSystem
         if (BoundDocs.Contains(key)) return;
         try
         {
-            SharedParams.BindToProject(doc, new[] { SharedParams.Sistema, SharedParams.Indice, SharedParams.Status, SharedParams.Codigo, SharedParams.Abertura, SharedParams.Grupo, SharedParams.Material }, SharedParams.GeneratedCategories);
+            SharedParams.BindToProject(doc, new[] { SharedParams.Sistema, SharedParams.Indice, SharedParams.Status, SharedParams.Codigo, SharedParams.Abertura, SharedParams.Grupo, SharedParams.Material, SharedParams.Ambiente }, SharedParams.GeneratedCategories);
             BoundDocs.Add(key);
         }
         catch (Exception ex)
