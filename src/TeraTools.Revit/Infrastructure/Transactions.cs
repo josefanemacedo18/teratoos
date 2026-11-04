@@ -47,6 +47,12 @@ public static class Tx
     /// <summary>Executa uma ação dentro de uma transação, com avisos suprimidos e registrados.</summary>
     public static void Run(Document doc, string name, Action action, OperationReport? report = null)
     {
+        if (doc.IsModifiable)
+        {
+            // Já existe uma transação aberta: executa dentro dela (chamadas aninhadas).
+            action();
+            return;
+        }
         using var t = new Transaction(doc, name);
         WarningCollector.Attach(t, report);
         t.Start();
