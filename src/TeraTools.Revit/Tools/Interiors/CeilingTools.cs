@@ -296,7 +296,7 @@ public sealed class RcpCommand : ToolCommand
                 ctx.Report.Created();
                 ctx.Report.AddResult(v.Id.Value);
                 if (!o.Tag || tagFailed) continue;
-                foreach (var c in new FilteredElementCollector(doc).OfClass(typeof(Ceiling)).Cast<Ceiling>().Where(c => c.LevelId == level.Id))
+                foreach (var c in new FilteredElementCollector(doc).OfClass(typeof(Ceiling)).Cast<Ceiling>().Where(c => c.LevelId == level.Id).ToList())
                 {
                     var reg = RevitGeo.SketchRegion(doc, c.SketchId);
                     var p = reg != null ? reg.Outer.Centroid : RevitGeo.BoxCenter(c)?.ToVec2();

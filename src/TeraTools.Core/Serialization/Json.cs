@@ -66,20 +66,57 @@ public static class Json
     public static T Clone<T>(T value) where T : class =>
         JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(value, Compact), Compact)!;
 
-    /// <summary>Copia os valores de <paramref name="json"/> sobre um objeto existente (preserva padrões não informados).</summary>
+    /// <summary>
+    /// Copia os valores de <paramref name="json"/> sobre um objeto existente (preserva padrões não informados).
+    /// Tolerante: cada propriedade é lida separadamente; valores de tipo diferente (ex.: 3.0 numa propriedade int,
+    /// texto numa numérica) são convertidos quando possível e ignorados quando não — nunca derrubam a ferramenta.
+    /// </summary>
     public static void PopulateObject(object target, string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return;
+        JsonObject? node;
+        try
+        {
+            node = JsonNode.Parse(json, new JsonNodeOptions { PropertyNameCaseInsensitive = true },
+                new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true }) as JsonObject;
+        }
+        catch (JsonException)
+        {
+            return;
+        }
+        if (node == null) return;
         var type = target.GetType();
-        var fresh = JsonSerializer.Deserialize(json, type, Options);
-        if (fresh == null) return;
-        var node = JsonNode.Parse(json) as JsonObject;
         foreach (var prop in type.GetProperties().Where(p => p.CanRead && p.CanWrite && p.GetIndexParameters().Length == 0))
         {
-            if (node != null && !node.Any(kv => string.Equals(kv.Key, prop.Name, StringComparison.OrdinalIgnoreCase)))
-                continue;
-            prop.SetValue(target, prop.GetValue(fresh));
+            var kv = node.FirstOrDefault(k => string.Equals(k.Key, prop.Name, StringComparison.OrdinalIgnoreCase));
+            if (kv.Key == null) continue;
+            if (TryReadValue(kv.Value, prop.PropertyType, out var value)) prop.SetValue(target, value);
         }
+    }
+
+    /// <summary>Lê um valor JSON para o tipo pedido, com conversões tolerantes.</summary>
+    public static bool TryReadValue(JsonNode? node, Type type, out object? value)
+    {
+        value = null;
+        try
+        {
+            value = node == null ? null : node.Deserialize(type, Options);
+            if (value == null && type.IsValueType && Nullable.GetUnderlyingType(type) == null) return false;
+            return true;
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or NotSupportedException or FormatException)
+        {
+            // segue para a conversão tolerante
+        }
+        if (node is JsonValue jv)
+        {
+            object? raw = jv.TryGetValue<double>(out var d) ? d
+                : jv.TryGetValue<string>(out var s) ? s
+                : jv.TryGetValue<bool>(out var b) ? b
+                : null;
+            if (raw != null) return ValueConverter.TryConvert(raw, type, out value);
+        }
+        return false;
     }
 
     public static string ReadFile(string path) => File.ReadAllText(path, Encoding.UTF8);

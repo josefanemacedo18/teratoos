@@ -154,15 +154,16 @@ internal sealed class OptionsWindow : Window
         _timer.Tick += (_, _) =>
         {
             _timer.Stop();
-            UpdatePreview();
+            Safe(UpdatePreview);
         };
 
         LoadPresetList(null);
         LoadAll();
-        Loaded += (_, _) => UpdatePreview();
+        Loaded += (_, _) => Safe(UpdatePreview);
+        Closed += (_, _) => _timer.Stop();
         PreviewKeyDown += (_, e) =>
         {
-            if (e.Key == Key.F1 && tool != null) HelpPages.Open(tool);
+            if (e.Key == Key.F1 && tool != null) Safe(() => HelpPages.Open(tool));
         };
     }
 
@@ -228,20 +229,77 @@ internal sealed class OptionsWindow : Window
     private void LoadAll()
     {
         _loading = true;
-        foreach (var e in _editors) e.Load(_options);
+        foreach (var e in _editors)
+        {
+            try
+            {
+                e.Load(_options);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Carregar campo \"{e.Opt.Label}\"", ex);
+            }
+        }
         _loading = false;
-        UpdateVisibility();
-        Validate();
+        Safe(() =>
+        {
+            UpdateVisibility();
+            Validate();
+        });
     }
 
     private void OnChanged()
     {
         if (_loading) return;
-        foreach (var e in _editors) e.Store(_options, out _);
-        UpdateVisibility();
-        Validate();
-        _timer.Stop();
-        _timer.Start();
+        Safe(() =>
+        {
+            StoreAll();
+            UpdateVisibility();
+            Validate();
+            _timer.Stop();
+            _timer.Start();
+        });
+    }
+
+    /// <summary>Grava todos os campos no objeto de opções sem deixar exceções escaparem.</summary>
+    private void StoreAll()
+    {
+        foreach (var e in _editors)
+        {
+            try
+            {
+                e.Store(_options, out _);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Campo \"{e.Opt.Label}\" ({e.Prop.Name})", ex);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Executa código de evento da interface com proteção: uma exceção dentro de um evento WPF
+    /// não tratada pode fechar o Revit, então registramos no log e mostramos no próprio diálogo.
+    /// </summary>
+    private void Safe(Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Erro no diálogo de opções", ex);
+            try
+            {
+                _errors.Text = Loc.T("Erro interno: ", "Internal error: ") + ex.Message;
+                _errors.Visibility = Visibility.Visible;
+            }
+            catch
+            {
+                // diálogo já fechado
+            }
+        }
     }
 
     private void UpdateVisibility()
@@ -303,8 +361,18 @@ internal sealed class OptionsWindow : Window
     {
         var errors = new List<string>();
         foreach (var e in _editors.Where(e => e.IsVisible))
-            if (!e.Store(_options, out var err) && err != null)
-                errors.Add($"{e.Opt.Label}: {err}");
+        {
+            try
+            {
+                if (!e.Store(_options, out var err) && err != null)
+                    errors.Add($"{e.Opt.Label}: {err}");
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Campo \"{e.Opt.Label}\" ({e.Prop.Name})", ex);
+                errors.Add($"{e.Opt.Label}: {ex.Message}");
+            }
+        }
         if (errors.Count == 0 && _options is IValidatableOptions v)
         {
             try
@@ -350,7 +418,7 @@ internal sealed class OptionsWindow : Window
 
     private void Accept()
     {
-        foreach (var e in _editors) e.Store(_options, out _);
+        StoreAll();
         if (!Validate()) return;
         DialogResult = true;
     }
@@ -710,12 +778,8 @@ internal sealed class NumberEditor : FieldEditor
     public override bool Store(object target, out string? error)
     {
         if (!TryParse(_box.Text, out var v, out error)) return false;
-        var t = Nullable.GetUnderlyingType(Prop.PropertyType) ?? Prop.PropertyType;
-        object boxed = t == typeof(int) ? (int)Math.Round(v)
-            : t == typeof(long) ? (long)Math.Round(v)
-            : t == typeof(float) ? (float)v
-            : v;
-        Prop.SetValue(target, boxed);
+        // Converte para o tipo exato da propriedade (int, long, float, double...).
+        Prop.SetValue(target, ValueConverter.ToNumeric(v, Prop.PropertyType));
         return true;
     }
 }

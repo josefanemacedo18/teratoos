@@ -17,6 +17,7 @@ public sealed class App : IExternalApplication
         try
         {
             Services.Initialize();
+            CrashGuard.Install();
             Loc.Current = Services.ResolveLanguage(app.ControlledApplication.Language);
             Theme.Detect();
             EnumTexts.RegisterAll();
@@ -235,4 +236,68 @@ public static class RibbonBuilder
 public sealed class AlwaysAvailable : IExternalCommandAvailability
 {
     public bool IsCommandAvailable(UIApplication applicationData, CategorySet selectedCategories) => true;
+}
+
+/// <summary>
+/// Rede de segurança: exceções originadas no código do Téra Tools dentro de eventos da interface (WPF)
+/// são registradas e contidas, em vez de chegar ao Revit (o que pode fechá-lo). Exceções de outros
+/// suplementos ou do próprio Revit não são tocadas.
+/// </summary>
+internal static class CrashGuard
+{
+    private static bool _installed;
+
+    public static void Install()
+    {
+        if (_installed) return;
+        _installed = true;
+        try
+        {
+            System.Windows.Threading.Dispatcher.CurrentDispatcher.UnhandledException += OnDispatcherException;
+            AppDomain.CurrentDomain.UnhandledException += OnDomainException;
+            TaskScheduler.UnobservedTaskException += (_, e) =>
+            {
+                if (!IsOurs(e.Exception)) return;
+                Log.Error("Tarefa em segundo plano", e.Exception);
+                e.SetObserved();
+            };
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Falha ao instalar proteção", ex);
+        }
+    }
+
+    public static bool IsOurs(Exception? ex)
+    {
+        for (var e = ex; e != null; e = e.InnerException)
+        {
+            var st = e.StackTrace ?? "";
+            if (st.Contains("TeraTools.", StringComparison.Ordinal)) return true;
+            if (e.TargetSite?.DeclaringType?.Assembly == typeof(CrashGuard).Assembly) return true;
+        }
+        return false;
+    }
+
+    private static void OnDispatcherException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+    {
+        if (!IsOurs(e.Exception)) return;
+        e.Handled = true;
+        Log.Error("Erro contido na interface do Téra Tools", e.Exception);
+        try
+        {
+            Msg.Error(Loc.T("Ocorreu um erro na janela do Téra Tools. O Revit continua funcionando. Detalhes no log: ",
+                "An error occurred in a Téra Tools window. Revit keeps running. Details in the log: ") + e.Exception.Message);
+        }
+        catch
+        {
+            // sem interface disponível
+        }
+    }
+
+    private static void OnDomainException(object sender, UnhandledExceptionEventArgs e)
+    {
+        // Não é possível impedir o encerramento aqui; apenas registra para diagnóstico.
+        if (e.ExceptionObject is Exception ex && IsOurs(ex)) Log.Error("ERRO FATAL (o Revit pode ter fechado)", ex);
+    }
 }

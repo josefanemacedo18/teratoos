@@ -390,7 +390,7 @@ public sealed class TitleBlockDataCommand : ToolCommand
                 S(BuiltInParameter.SHEET_ISSUE_DATE, o.SheetDate);
                 if (newTb != null)
                 {
-                    foreach (var tb in new FilteredElementCollector(doc, s.Id).OfCategory(BuiltInCategory.OST_TitleBlocks).OfType<FamilyInstance>())
+                    foreach (var tb in new FilteredElementCollector(doc, s.Id).OfCategory(BuiltInCategory.OST_TitleBlocks).OfType<FamilyInstance>().ToList())
                     {
                         if (tb.Symbol.Id == newTb.Id) continue;
                         tb.ChangeTypeId(newTb.Id);

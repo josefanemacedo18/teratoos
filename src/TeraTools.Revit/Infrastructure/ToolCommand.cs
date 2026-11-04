@@ -62,7 +62,15 @@ public static class ToolRunner
             status = RunStatus.Failed;
             errorDetail = ex.ToString();
             Log.Error($"Falha em {info.Id}", ex);
-            ErrorWindow.ShowError(info, ex, app.MainWindowHandle);
+            try
+            {
+                ErrorWindow.ShowError(info, ex, app.MainWindowHandle);
+            }
+            catch (Exception ex2)
+            {
+                Log.Error("Falha ao mostrar a janela de erro", ex2);
+                try { TaskDialog.Show("Téra Tools", ex.Message); } catch { /* sem interface */ }
+            }
         }
         finally
         {
