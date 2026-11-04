@@ -205,7 +205,15 @@ public sealed class QaCheckCommand : ToolCommand
     public override void Run(ToolContext ctx)
     {
         var o = ctx.Ask<QaCheckOptions>();
-        var doc = ctx.Doc;
+        QaRunner.Run(ctx.Doc, o, ctx.Report);
+    }
+}
+
+/// <summary>Executa a verificação num documento (usado também no processamento em lote).</summary>
+internal static class QaRunner
+{
+    public static void Run(Document doc, QaCheckOptions o, OperationReport report)
+    {
         var summary = new TableData(Loc.T("Resumo da verificação", "Check summary"));
         summary.AddColumn(Loc.T("Verificação", "Check")).AddColumn(Loc.T("Ocorrências", "Occurrences"), ColumnKind.Integer);
 
@@ -215,11 +223,11 @@ public sealed class QaCheckCommand : ToolCommand
             var issues = RuleEngine.Run(set, QaRules.Records(doc, set));
             foreach (var g in issues.GroupBy(i => i.Rule.Name))
             {
-                foreach (var i in g.Take(300)) ctx.Report.Add(i.Severity, i.Message, new[] { i.ElementId }, g.Key);
-                if (g.Count() > 300) ctx.Report.Info(Loc.F("{0}: mais {1} ocorrências não listadas.", "{0}: {1} more occurrences not listed.", g.Key, g.Count() - 300));
+                foreach (var i in g.Take(300)) report.Add(i.Severity, i.Message, new[] { i.ElementId }, g.Key);
+                if (g.Count() > 300) report.Info(Loc.F("{0}: mais {1} ocorrências não listadas.", "{0}: {1} more occurrences not listed.", g.Key, g.Count() - 300));
                 summary.AddRowWithIds(g.Select(i => i.ElementId), g.Key, g.Count());
             }
-            ctx.Report.Info(Loc.F("Regras \"{0}\": {1} ativas.", "Rules \"{0}\": {1} active.", set.Name, set.Rules.Count(r => r.Enabled)));
+            report.Info(Loc.F("Regras \"{0}\": {1} ativas.", "Rules \"{0}\": {1} active.", set.Name, set.Rules.Count(r => r.Enabled)));
         }
         if (o.Warnings)
         {
@@ -227,7 +235,7 @@ public sealed class QaCheckCommand : ToolCommand
             foreach (var g in warnings.GroupBy(w => w.GetDescriptionText()).OrderByDescending(g => g.Count()))
             {
                 var ids = g.SelectMany(w => w.GetFailingElements().Concat(w.GetAdditionalElements())).Select(id => id.Value).Distinct().ToList();
-                ctx.Report.Warn(Loc.F("Aviso do Revit ({0}×): {1}", "Revit warning ({0}×): {1}", g.Count(), g.Key), ids, Loc.T("Avisos do Revit", "Revit warnings"));
+                report.Warn(Loc.F("Aviso do Revit ({0}×): {1}", "Revit warning ({0}×): {1}", g.Count(), g.Key), ids, Loc.T("Avisos do Revit", "Revit warnings"));
                 summary.AddRowWithIds(ids, Loc.T("Aviso: ", "Warning: ") + g.Key, g.Count());
             }
         }
@@ -242,16 +250,16 @@ public sealed class QaCheckCommand : ToolCommand
                 })
                 .Where(g => g.Count() > 1).ToList();
             foreach (var g in dupes)
-                ctx.Report.Warn(Loc.F("{0} cópias sobrepostas de \"{1}\"", "{0} overlapping copies of \"{1}\"", g.Count(), Lookup.ElementLabel(g.First())), g.Select(f => f.Id.Value), Loc.T("Duplicados", "Duplicates"));
+                report.Warn(Loc.F("{0} cópias sobrepostas de \"{1}\"", "{0} overlapping copies of \"{1}\"", g.Count(), Lookup.ElementLabel(g.First())), g.Select(f => f.Id.Value), Loc.T("Duplicados", "Duplicates"));
             summary.AddRowWithIds(dupes.SelectMany(g => g.Skip(1)).Select(f => f.Id.Value), Loc.T("Elementos duplicados (excedentes)", "Duplicated elements (extra)"), dupes.Sum(g => g.Count() - 1));
         }
         if (o.Families)
         {
             var inplace = new FilteredElementCollector(doc).OfClass(typeof(Family)).Cast<Family>().Where(f => f.IsInPlace).ToList();
-            foreach (var f in inplace) ctx.Report.Info(Loc.F("Família no local: {0}", "In-place family: {0}", f.Name), f.Id.Value);
+            foreach (var f in inplace) report.Info(Loc.F("Família no local: {0}", "In-place family: {0}", f.Name), f.Id.Value);
             summary.AddRowWithIds(inplace.Select(f => f.Id.Value), Loc.T("Famílias no local", "In-place families"), inplace.Count);
             var imports = new FilteredElementCollector(doc).OfClass(typeof(ImportInstance)).Cast<ImportInstance>().Where(i => !i.IsLinked).ToList();
-            foreach (var i in imports) ctx.Report.Warn(Loc.F("CAD importado (não vinculado): {0}", "Imported CAD (not linked): {0}", i.Category?.Name ?? i.Name), new[] { i.Id.Value }, "CAD");
+            foreach (var i in imports) report.Warn(Loc.F("CAD importado (não vinculado): {0}", "Imported CAD (not linked): {0}", i.Category?.Name ?? i.Name), new[] { i.Id.Value }, "CAD");
             summary.AddRowWithIds(imports.Select(i => i.Id.Value), Loc.T("CAD importado", "Imported CAD"), imports.Count);
         }
         if (o.Rooms)
@@ -259,8 +267,8 @@ public sealed class QaCheckCommand : ToolCommand
             var rooms = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Rooms).OfType<Room>().ToList();
             var unplaced = rooms.Where(r => r.Location == null).ToList();
             var unenclosed = rooms.Where(r => r.Location != null && r.Area <= 0).ToList();
-            foreach (var r in unplaced) ctx.Report.Warn(Loc.F("Ambiente não colocado: {0} {1}", "Unplaced room: {0} {1}", r.Number, r.Name), new[] { r.Id.Value }, Loc.T("Ambientes", "Rooms"));
-            foreach (var r in unenclosed) ctx.Report.Error(Loc.F("Ambiente não fechado/redundante: {0} {1}", "Not enclosed/redundant room: {0} {1}", r.Number, r.Name), new[] { r.Id.Value }, Loc.T("Ambientes", "Rooms"));
+            foreach (var r in unplaced) report.Warn(Loc.F("Ambiente não colocado: {0} {1}", "Unplaced room: {0} {1}", r.Number, r.Name), new[] { r.Id.Value }, Loc.T("Ambientes", "Rooms"));
+            foreach (var r in unenclosed) report.Error(Loc.F("Ambiente não fechado/redundante: {0} {1}", "Not enclosed/redundant room: {0} {1}", r.Number, r.Name), new[] { r.Id.Value }, Loc.T("Ambientes", "Rooms"));
             summary.AddRowWithIds(unplaced.Select(r => r.Id.Value), Loc.T("Ambientes não colocados", "Unplaced rooms"), unplaced.Count);
             summary.AddRowWithIds(unenclosed.Select(r => r.Id.Value), Loc.T("Ambientes não fechados", "Not enclosed rooms"), unenclosed.Count);
         }
@@ -271,27 +279,27 @@ public sealed class QaCheckCommand : ToolCommand
                                                                 && v.ViewType is not (ViewType.ProjectBrowser or ViewType.SystemBrowser or ViewType.Internal) && !placed.Contains(v.Id.Value)).ToList();
             summary.AddRowWithIds(notPlaced.Select(v => v.Id.Value), Loc.T("Vistas fora de pranchas", "Views not on sheets"), notPlaced.Count);
             var empty = Lookup.Collect<ViewSheet>(doc).Where(s => !s.IsPlaceholder && s.GetAllPlacedViews().Count == 0).ToList();
-            foreach (var s in empty) ctx.Report.Info(Loc.F("Prancha vazia: {0} - {1}", "Empty sheet: {0} - {1}", s.SheetNumber, s.Name), s.Id.Value);
+            foreach (var s in empty) report.Info(Loc.F("Prancha vazia: {0} - {1}", "Empty sheet: {0} - {1}", s.SheetNumber, s.Name), s.Id.Value);
             summary.AddRowWithIds(empty.Select(s => s.Id.Value), Loc.T("Pranchas vazias", "Empty sheets"), empty.Count);
         }
-        ctx.Report.Tables.Insert(0, summary);
-        if (!ctx.Report.HasErrors && !ctx.Report.HasWarnings) ctx.Report.Success(Loc.T("Nenhum problema encontrado pelas verificações escolhidas.", "No problem found by the chosen checks."));
+        report.Tables.Insert(0, summary);
+        if (!report.HasErrors && !report.HasWarnings) report.Success(Loc.T("Nenhum problema encontrado pelas verificações escolhidas.", "No problem found by the chosen checks."));
         if (o.Save)
         {
             try
             {
                 var title = TextUtil.SafeFileName(string.IsNullOrWhiteSpace(doc.Title) ? "projeto" : doc.Title);
                 var html = Path.Combine(Paths.Exports, $"{title} - verificacao {DateTime.Now:yyyyMMdd-HHmm}.html");
-                HtmlReportWriter.Write(html, Loc.T("Verificação de qualidade", "Quality check"), doc.Title, ctx.Report, ctx.Report.Tables);
-                XlsxWriter.Write(Path.ChangeExtension(html, ".xlsx"), ctx.Report.Tables);
-                ctx.Report.Success(Loc.F("Relatório salvo: {0}", "Report saved: {0}", html));
+                HtmlReportWriter.Write(html, Loc.T("Verificação de qualidade", "Quality check"), doc.Title, report, report.Tables);
+                XlsxWriter.Write(Path.ChangeExtension(html, ".xlsx"), report.Tables);
+                report.Success(Loc.F("Relatório salvo: {0}", "Report saved: {0}", html));
             }
             catch (Exception ex)
             {
-                ctx.Report.Error(ex.Message);
+                report.Error(ex.Message);
             }
         }
-        ctx.Report.ForceShow = true;
+        report.ForceShow = true;
     }
 }
 
