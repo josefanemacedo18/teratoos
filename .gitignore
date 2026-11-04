@@ -1,0 +1,19 @@
+# Build
+bin/
+obj/
+dist/
+out/
+artifacts/
+*.user
+*.suo
+.vs/
+.idea/
+*.swp
+TestResults/
+*.log
+
+# Revit backups
+*.0001.rvt
+*.0001.rfa
+*.000?.rfa
+*.000?.rvt

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>Téra Tools</Name>
+    <Assembly>TeraTools\TeraTools.dll</Assembly>
+    <FullClassName>TeraTools.Revit.App</FullClassName>
+    <ClientId>481D20B7-41EF-4A2E-A610-DC319777406E</ClientId>
+    <VendorId>TERA</VendorId>
+    <VendorDescription>Téra</VendorDescription>
+  </AddIn>
+</RevitAddIns>

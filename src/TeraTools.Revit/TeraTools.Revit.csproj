@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Add-in do Revit (Téra Tools). Gera TeraTools.dll, carregado pelo Revit 2027
+    através do manifesto deploy/TeraTools.addin.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- Permite compilar também fora do Windows (CI/Linux). Não muda o resultado. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <PlatformTarget>x64</PlatformTarget>
+    <RootNamespace>TeraTools.Revit</RootNamespace>
+    <AssemblyName>TeraTools</AssemblyName>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <SatelliteResourceLanguages>none</SatelliteResourceLanguages>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Assemblies de referência da API do Revit (não são copiadas para a saída). -->
+    <PackageReference Include="Nice3point.Revit.Api.RevitAPI" Version="$(RevitApiVersion)" PrivateAssets="all" ExcludeAssets="runtime" />
+    <PackageReference Include="Nice3point.Revit.Api.RevitAPIUI" Version="$(RevitApiVersion)" PrivateAssets="all" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TeraTools.Core\TeraTools.Core.csproj" />
+  </ItemGroup>
+
+  <!--
+    Empacotamento: depois de compilar em Release, monta a pasta
+    dist/TeraTools-Revit2027 com tudo o que o usuário precisa instalar.
+  -->
+  <Target Name="TeraPackage" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <PropertyGroup>
+      <TeraDist>$(MSBuildThisFileDirectory)..\..\dist\TeraTools-Revit$(RevitVersion)\</TeraDist>
+    </PropertyGroup>
+    <ItemGroup>
+      <TeraBinaries Include="$(OutDir)*.dll;$(OutDir)*.json;$(OutDir)*.pdb" />
+      <TeraDeploy Include="$(MSBuildThisFileDirectory)..\..\deploy\*.*" />
+    </ItemGroup>
+    <RemoveDir Directories="$(TeraDist)" />
+    <Copy SourceFiles="@(TeraBinaries)" DestinationFolder="$(TeraDist)TeraTools\" />
+    <Copy SourceFiles="@(TeraDeploy)" DestinationFolder="$(TeraDist)" />
+    <Message Importance="high" Text="Téra Tools empacotado em: $(TeraDist)" />
+  </Target>
+
+  <!-- Em Debug no Windows: instala direto na pasta de add-ins do Revit para testar. -->
+  <Target Name="TeraDeployLocal" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug' And '$(OS)' == 'Windows_NT' And Exists('$(AppData)\Autodesk\Revit\Addins\$(RevitVersion)')">
+    <PropertyGroup>
+      <TeraAddins>$(AppData)\Autodesk\Revit\Addins\$(RevitVersion)\</TeraAddins>
+    </PropertyGroup>
+    <ItemGroup>
+      <TeraDebugBinaries Include="$(OutDir)*.dll;$(OutDir)*.json;$(OutDir)*.pdb" />
+    </ItemGroup>
+    <Copy SourceFiles="@(TeraDebugBinaries)" DestinationFolder="$(TeraAddins)TeraTools\" ContinueOnError="true" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\deploy\TeraTools.addin" DestinationFolder="$(TeraAddins)" ContinueOnError="true" />
+  </Target>
+
+</Project>

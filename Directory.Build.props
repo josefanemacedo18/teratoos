@@ -1,0 +1,19 @@
+<Project>
+  <!-- Configurações comuns a todos os projetos do Téra Tools -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <Version>0.1.0</Version>
+    <Product>Téra Tools</Product>
+    <Company>Téra</Company>
+    <Authors>Téra</Authors>
+    <Copyright>Téra</Copyright>
+    <NeutralLanguage>pt-BR</NeutralLanguage>
+    <!-- Versão do Revit alvo -->
+    <RevitVersion>2027</RevitVersion>
+    <RevitApiVersion>2027.3.0</RevitApiVersion>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+</Project>
