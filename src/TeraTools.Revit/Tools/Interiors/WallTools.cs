@@ -42,60 +42,70 @@ public sealed class WallPaintCommand : ToolCommand
         var o = ctx.Ask<WallPaintOptions>();
         var doc = ctx.Doc;
         var mat = o.Remove ? null : Lookup.Material(doc, o.Material) ?? throw new ToolException(Loc.T("Escolha o material.", "Choose the material."));
-        var opts = new SpatialElementBoundaryOptions { SpatialElementBoundaryLocation = SpatialElementBoundaryLocation.Finish };
         ctx.Modify(ctx.Tool.Name, () =>
         {
             foreach (var room in rooms)
             {
-                var lz = (room.Level?.Elevation ?? 0) + 1.0;
-                var segs = room.GetBoundarySegments(opts).SelectMany(l => l).Where(s => doc.GetElement(s.ElementId) is Wall).ToList();
-                var faces = 0;
-                foreach (var g in segs.GroupBy(s => s.ElementId.Value))
-                {
-                    var wall = (Wall)doc.GetElement(new ElementId(g.Key));
-                    var segLen = g.Sum(s => s.GetCurve().Length);
-                    var refs = new List<Reference>();
-                    try
-                    {
-                        refs.AddRange(HostObjectUtils.GetSideFaces(wall, ShellLayerType.Interior));
-                        refs.AddRange(HostObjectUtils.GetSideFaces(wall, ShellLayerType.Exterior));
-                    }
-                    catch
-                    {
-                        continue;
-                    }
-                    foreach (var r in refs)
-                    {
-                        if (wall.GetGeometryObjectFromReference(r) is not Face face) continue;
-                        var targets = face.HasRegions ? face.GetRegions().ToList() : new List<Face> { face };
-                        foreach (var f in targets)
-                        {
-                            if (!Faces(room, f, lz)) continue;
-                            try
-                            {
-                                if (mat == null) doc.RemovePaint(wall.Id, f);
-                                else doc.Paint(wall.Id, f, mat.Id);
-                                faces++;
-                                if (!face.HasRegions && HorizontalLength(f) > segLen + 0.5)
-                                    ctx.Report.Info(Loc.F("{0}: a face da parede continua além do ambiente (toda a face foi pintada).", "{0}: the wall face continues beyond the room (the whole face was painted).",
-                                        RoomUtil.Label(room)), wall.Id.Value);
-                            }
-                            catch (Exception ex)
-                            {
-                                Log.Debug("Pintura: " + ex.Message);
-                            }
-                        }
-                    }
-                }
+                var faces = RoomWallPainter.Paint(doc, room, mat, ctx.Report);
                 ctx.Report.Count(Loc.T("Faces", "Faces"), faces);
                 if (mat != null && o.FillFinish) RevitGeo.Set(room, BuiltInParameter.ROOM_FINISH_WALL, mat.Name);
                 ctx.Report.AddResult(room.Id.Value);
             }
         });
     }
+}
+
+/// <summary>Pinta (ou remove a pintura) das faces de parede voltadas para um ambiente.</summary>
+public static class RoomWallPainter
+{
+    public static int Paint(Document doc, Room room, Material? mat, Core.Reporting.OperationReport report)
+    {
+        var opts = new SpatialElementBoundaryOptions { SpatialElementBoundaryLocation = SpatialElementBoundaryLocation.Finish };
+        var lz = (room.Level?.Elevation ?? 0) + 1.0;
+        var segs = room.GetBoundarySegments(opts).SelectMany(l => l).Where(s => doc.GetElement(s.ElementId) is Wall).ToList();
+        var faces = 0;
+        foreach (var g in segs.GroupBy(s => s.ElementId.Value))
+        {
+            var wall = (Wall)doc.GetElement(new ElementId(g.Key));
+            var segLen = g.Sum(s => s.GetCurve().Length);
+            var refs = new List<Reference>();
+            try
+            {
+                refs.AddRange(HostObjectUtils.GetSideFaces(wall, ShellLayerType.Interior));
+                refs.AddRange(HostObjectUtils.GetSideFaces(wall, ShellLayerType.Exterior));
+            }
+            catch
+            {
+                continue;
+            }
+            foreach (var r in refs)
+            {
+                if (wall.GetGeometryObjectFromReference(r) is not Face face) continue;
+                var targets = face.HasRegions ? face.GetRegions().ToList() : new List<Face> { face };
+                foreach (var f in targets)
+                {
+                    if (!Faces(room, f, lz)) continue;
+                    try
+                    {
+                        if (mat == null) doc.RemovePaint(wall.Id, f);
+                        else doc.Paint(wall.Id, f, mat.Id);
+                        faces++;
+                        if (!face.HasRegions && HorizontalLength(f) > segLen + 0.5)
+                            report.Info(Loc.F("{0}: a face da parede continua além do ambiente (toda a face foi pintada).", "{0}: the wall face continues beyond the room (the whole face was painted).",
+                                RoomUtil.Label(room)), wall.Id.Value);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Debug("Pintura: " + ex.Message);
+                    }
+                }
+            }
+        }
+        return faces;
+    }
 
     /// <summary>A face está voltada para o ambiente? (ponto da face deslocado pela normal cai dentro dele)</summary>
-    private static bool Faces(Room room, Face f, double probeZ)
+    internal static bool Faces(Room room, Face f, double probeZ)
     {
         try
         {
@@ -123,7 +133,7 @@ public sealed class WallPaintCommand : ToolCommand
         }
     }
 
-    private static double HorizontalLength(Face f)
+    internal static double HorizontalLength(Face f)
     {
         var pts = f.Triangulate(0.5).Vertices.Cast<XYZ>().ToList();
         if (pts.Count < 2) return 0;
