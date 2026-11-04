@@ -308,6 +308,7 @@ internal static class GenRegistry
         ["gen.kinetic"] = KineticCommand.Regenerate,
         ["wall.slats"] = Interiors.SlatsCommand.Regenerate,
         ["wall.boiserie"] = Interiors.BoiserieCommand.Regenerate,
+        ["join.module"] = Joinery.JoineryUi.Regenerate,
     };
 
     public static (string SystemId, ProjectStorage.GeneratedSystem System) PickSystem(ToolContext ctx, string? toolFilter = null)
