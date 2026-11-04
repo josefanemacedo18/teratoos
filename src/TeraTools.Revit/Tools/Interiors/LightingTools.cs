@@ -272,6 +272,14 @@ public sealed class LightGridCommand : ToolCommand
             total += pts.Count;
             if (o.Mode == LightMode.Lumen) luxes.Add(lux);
             foreach (var p in pts) pm.Dot(p, U.Mm(120), "#E0A526");
+            var sc = pm.S3;
+            sc.Face(Frame3.World, reg.Outer, "#D9D4CC", 0.45);
+            sc.Face(new Frame3(new Vec3(0, 0, o.Height), Vec3.UnitX, Vec3.UnitY, Vec3.UnitZ), reg.Outer, "#FFFFFF", 0.12);
+            foreach (var p in pts)
+            {
+                sc.Box(OrientedBox.FromCenter(new Vec3(p.X, p.Y, o.Height - U.Mm(30)), Vec3.UnitX, Vec3.UnitY, U.Mm(180), U.Mm(180), U.Mm(60)), "#E0A526");
+                sc.Line(new Vec3(p.X, p.Y, o.Height - U.Mm(60)), new Vec3(p.X, p.Y, 0), "#F2D27A");
+            }
         }
         pm.Info = o.Mode == LightMode.Lumen && luxes.Count > 0
             ? Loc.F("{0} luminárias · ≈{1}–{2} lux (estimativa)", "{0} fixtures · ≈{1}–{2} lux (estimate)", total, Math.Round(luxes.Min()), Math.Round(luxes.Max()))

@@ -539,6 +539,13 @@ public sealed class SlatsCommand : ToolCommand
         foreach (var (r, back) in rects.Where(x => x.Backing)) pm.Polygon(r.ToPolygon(), "#EFE6DC", "#B9A48F", 0.6);
         foreach (var (r, _) in rects.Where(x => !x.Backing).Take(4000)) pm.Polygon(r.ToPolygon(), "#B5652B", "#6B4A33", 0.4);
         var slats = rects.Where(x => !x.Backing).ToList();
+        var f3 = c.GetFrame();
+        var sc = pm.S3;
+        sc.Face(f3, reg.Outer, "#D9D4CC", 0.35);
+        var backZ = o.Offset;
+        var slatZ = o.Offset + (o.Backing ? o.BackingThickness : 0);
+        foreach (var (r, back) in rects.Take(8000))
+            sc.Box(back ? FaceBoxes.Box(f3, r, backZ, o.BackingThickness) : FaceBoxes.Box(f3, r, slatZ, o.Depth), back ? "#E7DCCD" : "#A9693A");
         var lin = slats.Sum(x => o.Direction == SlatDirection.Vertical ? x.R.Height : x.R.Width);
         pm.Info = Loc.F("{0} ripas · {1} lineares · fundo {2}", "{0} slats · {1} linear · backing {2}",
             slats.Count, U.FormatM(lin), U.FormatArea(rects.Where(x => x.Backing).Sum(x => x.R.Area)));
@@ -743,6 +750,10 @@ public sealed class BoiserieCommand : ToolCommand
         pm.Region(reg);
         foreach (var f in frames) pm.Outline(f.ToPolygon(), "#B9A48F", 0.6, dashed: true);
         foreach (var p in pieces) pm.Polygon(p.ToPolygon(), "#D9C2AE", "#6B4A33", 0.5);
+        var f3 = c.GetFrame();
+        var sc = pm.S3;
+        sc.Face(f3, reg.Outer, "#ECE7DF", 0.6);
+        foreach (var p in pieces.Take(8000)) sc.Box(FaceBoxes.Box(f3, p, 0, o.MoldDepth), "#C9B79E");
         pm.Info = Loc.F("{0} quadros · {1} peças de moldura{2}", "{0} frames · {1} molding pieces{2}", frames.Count, pieces.Count,
             skipped > 0 ? Loc.F(" · {0} quadros omitidos (vãos)", " · {0} frames skipped (openings)", skipped) : "");
         return pm;

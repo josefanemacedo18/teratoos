@@ -168,6 +168,16 @@ public sealed class ImageCommand : ToolCommand
             var fill = o.ColorMode == BlockColorMode.Single ? GenHost.Gradient(b.Value) : palette[Math.Clamp(b.PaletteIndex, 0, palette.Count - 1)].Hex;
             pm.Polygon(Polygon2.Rectangle(b.Center, b.Size, b.Size, 0), fill, fill, 0.2);
         }
+        // 3D: blocos numa fachada vertical (X = largura, Z = altura, Y = relevo)
+        var sc = pm.S3;
+        var wall = new Frame3(Vec3.Zero, Vec3.UnitX, Vec3.UnitZ, -Vec3.UnitY);
+        sc.Face(wall, Polygon2.Rectangle(Vec2.Zero, r.TotalWidth, r.TotalHeight), "#D9D4CC", 0.3);
+        foreach (var b in r.Blocks.Take(20000))
+        {
+            var fill = o.ColorMode == BlockColorMode.Single ? GenHost.Gradient(b.Value) : palette[Math.Clamp(b.PaletteIndex, 0, palette.Count - 1)].Hex;
+            var origin = wall.ToWorld(b.Center.X - b.Size / 2, b.Center.Y - b.Size / 2, 0);
+            sc.Box(new OrientedBox(new Frame3(origin, wall.XAxis, wall.YAxis, wall.ZAxis), b.Size, b.Size, Math.Max(b.Height, U.Mm(2))), fill);
+        }
         pm.Info = Loc.F("{0} × {1} = {2} blocos · {3} cor(es) · {4} × {5}", "{0} × {1} = {2} blocks · {3} color(s) · {4} × {5}",
             r.Columns, r.Rows, r.Blocks.Count, palette.Count, U.FormatM(r.TotalWidth), U.FormatM(r.TotalHeight))
             + (r.ResolutionReduced ? Loc.T(" · resolução reduzida pelo limite", " · resolution reduced by the limit") : "");

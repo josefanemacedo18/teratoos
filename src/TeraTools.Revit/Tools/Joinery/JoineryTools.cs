@@ -344,6 +344,21 @@ public sealed class RunCommand : ToolCommand
             pm.Polygon(Polygon2.Rectangle(new Vec2(fx, tpl.Elevation), fw, tpl.Height), "#B9A48F", "#6B4A33", 0.6);
         if (o.ContinuousTop)
             pm.Polygon(Polygon2.Rectangle(new Vec2(o.StartGap - o.TopSides, tpl.Elevation + tpl.Height), length - o.StartGap - o.EndGap + 2 * o.TopSides, o.TopThickness), "#C9C7C2", "#5F6B7A", 0.8);
+        // 3D: parede ao fundo, módulos, complementos e tampo
+        var sc = pm.S3;
+        var wallF = new Frame3(new Vec3(0, tpl.Depth, 0), Vec3.UnitX, Vec3.UnitZ, Vec3.UnitY);
+        sc.Face(wallF, Polygon2.Rectangle(new Vec2(-U.Mm(200), 0), length + U.Mm(400), Math.Max(tpl.Elevation + tpl.Height + U.Mm(400), U.M(2.6))), "#D9D4CC", 0.35);
+        Frame3 At(double x, double y, double z) => new(new Vec3(x, y, z), Vec3.UnitX, Vec3.UnitY, Vec3.UnitZ);
+        for (var i = 0; i < plan.Positions.Count; i++)
+        {
+            var w = plan.Result.Widths[i];
+            sc.Box(new OrientedBox(At(plan.Positions[i] + U.Mm(1), 0, tpl.Elevation), w - U.Mm(2), tpl.Depth, tpl.Height), "#E8DFD2");
+            sc.Box(new OrientedBox(At(plan.Positions[i] + U.Mm(2), -tpl.FrontThickness, tpl.Elevation + (tpl.HasPlinth ? tpl.PlinthHeight : 0)), w - U.Mm(4), tpl.FrontThickness, tpl.Height - (tpl.HasPlinth ? tpl.PlinthHeight : 0)), "#C98F5A");
+        }
+        foreach (var (fx, fw) in plan.Fillers)
+            sc.Box(new OrientedBox(At(fx, -tpl.FrontThickness, tpl.Elevation), fw, tpl.FrontThickness, tpl.Height), "#B9A48F");
+        if (o.ContinuousTop)
+            sc.Box(new OrientedBox(At(o.StartGap - o.TopSides, -o.TopFront - tpl.FrontThickness, tpl.Elevation + tpl.Height), length - o.StartGap - o.EndGap + 2 * o.TopSides, tpl.Depth + o.TopFront + tpl.FrontThickness, o.TopThickness), "#BFBDB8");
         pm.Info = Loc.F("{0} módulos: {1}{2}", "{0} modules: {1}{2}", plan.Result.Widths.Count, string.Join(" + ", plan.Result.Widths.Select(w => U.FormatMm(w))),
             plan.Result.Filler > 1e-6 ? Loc.F(" · complemento {0}", " · filler {0}", U.FormatMm(plan.Result.Filler)) : "");
         return pm;

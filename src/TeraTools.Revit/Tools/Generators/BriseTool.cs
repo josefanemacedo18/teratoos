@@ -224,6 +224,18 @@ public sealed class BriseCommand : ToolCommand
             var corners = f.Box.Corners().Select(p => p.XY).ToList();
             pm.Polygon(PolygonOps.ConvexHull(corners), GenHost.Gradient(f.VariationValue), "#6B4A33", 0.6);
         }
+        var sc = pm.S3;
+        for (var k = 0; k + 1 < pts.Count; k++)
+        {
+            var a = new Vec3(pts[k].X, pts[k].Y, c.Z0);
+            var b = new Vec3(pts[k + 1].X, pts[k + 1].Y, c.Z0);
+            var dir = (b - a);
+            if (dir.Length < 1e-6) continue;
+            var f = new Frame3(a, dir.Normalized(), Vec3.UnitZ, dir.Normalized().Cross(Vec3.UnitZ));
+            sc.Face(f, Polygon2.Rectangle(Vec2.Zero, dir.Length, Math.Max(c.Z1 - c.Z0, U.M(1))), "#D9D4CC", 0.3);
+        }
+        var mats = new[] { "#B5652B", "#7A8C99", "#C9A66B" };
+        foreach (var fin in r.Fins.Take(6000)) sc.Box(fin.Box, mats[Math.Clamp(fin.MaterialIndex, 0, 2)]);
         pm.Info = Loc.F("{0} aletas · {1} lineares · {2}", "{0} fins · {1} linear · {2}", r.Fins.Count, U.FormatM(r.TotalLength), U.FormatVolume(r.TotalVolume));
         return pm;
     }

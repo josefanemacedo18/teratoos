@@ -250,6 +250,54 @@ public sealed class CoveCommand : ToolCommand
             pm.Polygon(outer.Outer, "#E9D5C1", "#6B4A33", 1);
             if (inner != null) pm.Polygon(inner.Outer, "#FFFFFF", "#B5652B", 1.2);
         }
+        // 3D: paredes do ambiente (transparentes), rebaixo, forro central e fechamento
+        var sc = pm.S3;
+        foreach (var (_, reg) in regions)
+        {
+            var (outer, inner, band) = Split(o, reg);
+            var top = Math.Max(o.CenterHeight, o.BandHeight) + U.Mm(300);
+            foreach (var e in reg.Outer.Edges())
+            {
+                var d = e.Vector;
+                if (d.Length < 1e-6) continue;
+                var f = new Frame3(new Vec3(e.A.X, e.A.Y, 0), new Vec3(d.X, d.Y, 0).Normalized(), Vec3.UnitZ, new Vec3(d.X, d.Y, 0).Normalized().Cross(Vec3.UnitZ));
+                sc.Face(f, Polygon2.Rectangle(Vec2.Zero, d.Length, top), "#D9D4CC", 0.18);
+            }
+            var thk = U.Mm(25);
+            if (band != null && inner != null)
+            {
+                // faixa: prisma do contorno externo menos o interno (mostrado como peças por aresta)
+                var flat = Frame3.World;
+                foreach (var hole in new[] { inner.Outer })
+                {
+                    var o2 = outer.Outer.EnsureCounterClockwise();
+                    var i2 = hole.EnsureCounterClockwise();
+                    // aproximação: quadriláteros entre arestas correspondentes quando o número de vértices coincide
+                    if (o2.Count == i2.Count)
+                        for (var k = 0; k < o2.Count; k++)
+                        {
+                            var quad = new Polygon2(new[] { o2[k], o2[(k + 1) % o2.Count], i2[(k + 1) % i2.Count], i2[k] });
+                            sc.Prism(flat, quad.EnsureCounterClockwise(), o.BandHeight - thk, thk, "#F1ECE4");
+                        }
+                    else
+                        sc.Face(new Frame3(new Vec3(0, 0, o.BandHeight), Vec3.UnitX, Vec3.UnitY, Vec3.UnitZ), o2, "#F1ECE4", 0.8);
+                }
+                sc.Prism(flat, inner.Outer, o.CenterHeight - thk, thk, "#FFFFFF");
+                if (o.Closure)
+                {
+                    var h = Math.Abs(o.CenterHeight - o.BandHeight) - o.Slot;
+                    var z0 = Math.Min(o.CenterHeight, o.BandHeight);
+                    if (h > 0)
+                        foreach (var e in inner.Outer.Edges())
+                        {
+                            var d = e.Vector;
+                            if (d.Length < 1e-6) continue;
+                            var f = new Frame3(new Vec3(e.A.X, e.A.Y, z0), new Vec3(d.X, d.Y, 0).Normalized(), Vec3.UnitZ, new Vec3(d.X, d.Y, 0).Normalized().Cross(Vec3.UnitZ));
+                            sc.Box(new OrientedBox(f, d.Length, h, U.Mm(15)), "#E2DAD0");
+                        }
+                }
+            }
+        }
         pm.Info = Loc.F("Rebaixo {0} · central {1} · faixa {2}", "Drop {0} · center {1} · band {2}", U.FormatM(o.BandHeight), U.FormatM(o.CenterHeight), U.FormatCm(o.BandWidth));
         return pm;
     }

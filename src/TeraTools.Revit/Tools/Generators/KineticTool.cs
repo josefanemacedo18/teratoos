@@ -199,6 +199,12 @@ public sealed class KineticCommand : ToolCommand
             var pts = p.Corners.Select(v => new Vec2(v.X, v.Y)).ToList();
             pm.Polygon(new Polygon2(pts).IsEmpty ? Polygon2.Rectangle(pts[0], 0.01, 0.01) : new Polygon2(pts), GenHost.Gradient(p.OpeningFraction), "#6B4A33", 0.6);
         }
+        // 3D: painéis na posição do estado, sobre a fachada (plano XY = fachada, Z = para fora)
+        var sc = pm.S3;
+        var facade = new Frame3(Vec3.Zero, Vec3.UnitX, Vec3.UnitZ, -Vec3.UnitY);
+        sc.Face(facade, Polygon2.Rectangle(Vec2.Zero, c.FaceWidth, c.FaceHeight), "#D9D4CC", 0.3);
+        var panels3d = KineticGenerator.Evaluate(s, facade, state);
+        foreach (var p in panels3d.Take(5000)) sc.Box(p.Box, GenHost.Gradient(p.OpeningFraction));
         pm.Info = Loc.F("{0} × {1} = {2} painéis · estado {3:0}% · {4}°–{5}°", "{0} × {1} = {2} panels · state {3:0}% · {4}°–{5}°",
             cols, rows, cols * rows, state * 100, panels.Min(x => x.AngleDeg).ToString("0", CultureInfo.CurrentCulture), panels.Max(x => x.AngleDeg).ToString("0", CultureInfo.CurrentCulture));
         return pm;

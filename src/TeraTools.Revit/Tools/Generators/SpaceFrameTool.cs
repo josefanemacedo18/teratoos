@@ -208,6 +208,23 @@ public sealed class SpaceFrameCommand : ToolCommand
             };
             pm.Line(b.Start.XY, b.End.XY, color, b.Role == BarRole.Diagonal ? 0.6 : 1.2);
         }
+        var sc = pm.S3;
+        var fp = Footprint(c).Outer;
+        sc.Face(new Frame3(new Vec3(0, 0, c.BaseZ), Vec3.UnitX, Vec3.UnitY, Vec3.UnitZ), fp, "#D9D4CC", 0.25);
+        var tube = Math.Max(o.TubeDiameter, U.Mm(10));
+        foreach (var b in r.Bars.Take(8000))
+        {
+            var color = b.Role switch
+            {
+                BarRole.TopChord => "#B5652B",
+                BarRole.BottomChord => "#3B7DD8",
+                BarRole.Vertical => "#2F7D4F",
+                _ => "#9AA3AE",
+            };
+            sc.Cylinder(b.Start, b.End, tube / 2, color, 6);
+        }
+        if (o.CreateNodes)
+            foreach (var n in r.Nodes.Take(4000)) sc.Sphere(n.Position, Math.Max(o.NodeDiameter, tube) / 2, "#5F6B7A", 8);
         pm.Info = Loc.F("{0} nós · {1} barras · {2} de barras", "{0} nodes · {1} bars · {2} of bars", r.Nodes.Count, r.Bars.Count, U.FormatM(r.TotalBarLength));
         return pm;
     }

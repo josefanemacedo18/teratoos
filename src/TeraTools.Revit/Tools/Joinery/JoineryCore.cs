@@ -520,6 +520,16 @@ internal static class JoineryGen
             }
         }
         pm.Line(new Vec2(-U.Mm(100), 0), new Vec2(dx + spec.Width + U.Mm(100), 0), "#5F6B7A", 1.5);
+        // 3D: o módulo completo (X largura, Y profundidade a partir da frente, Z altura)
+        var sc = pm.S3;
+        sc.Face(Frame3.World, Polygon2.Rectangle(new Vec2(-U.Mm(300), -U.Mm(600)), spec.Width + U.Mm(600), spec.Depth + U.Mm(900)), "#D9D4CC", 0.25);
+        foreach (var b in model.Boards)
+        {
+            var p = b.Placement;
+            var o0 = p.Frame.Origin;
+            var color = fronts.Contains(b.Role) ? "#C98F5A" : b.Role == PanelRole.Back ? "#EFE9E0" : b.Role == PanelRole.Countertop ? "#BFBDB8" : b.Role == PanelRole.Plinth ? "#7A7A7A" : "#E8DFD2";
+            sc.Box(new OrientedBox(new Frame3(new Vec3(o0.X, o0.Y, o0.Z + spec.Elevation), Vec3.UnitX, Vec3.UnitY, Vec3.UnitZ), p.SizeX, p.SizeY, p.SizeZ), color);
+        }
         var area = model.Boards.Sum(b => b.Area * b.Quantity);
         pm.Info = Loc.F("{0} peças · {1} de chapa · {2} de fita · {3} ferragens{4}", "{0} pieces · {1} of board · {2} of edge band · {3} hardware{4}",
             model.Boards.Count, U.FormatArea(area), U.FormatM(model.EdgeBandLength()), model.Hardware.Sum(h => h.Quantity),
