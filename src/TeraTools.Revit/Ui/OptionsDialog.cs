@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Threading;
 using Autodesk.Revit.DB;
@@ -54,6 +55,9 @@ internal sealed class OptionsWindow : Window
     private readonly TextBlock _errors;
     private readonly Button _ok;
     private readonly PreviewCanvas? _canvas;
+    private readonly Preview3D? _view3d;
+    private readonly ToggleButton? _tab3d, _tab2d;
+    private bool _show3d = true;
     private readonly TextBlock? _previewInfo;
     private readonly DispatcherTimer _timer;
     private readonly ComboBox _presetCombo;
@@ -119,8 +123,25 @@ internal sealed class OptionsWindow : Window
             pv.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             pv.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             pv.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            pv.Children.Add(UiKit.Text(Loc.T("Pré-visualização", "Preview"), 12, true, margin: new Thickness(0, 0, 0, 6)).At(0, 0));
-            var canvasBorder = new Border { Child = _canvas, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(4) };
+            _view3d = new Preview3D { Visibility = Visibility.Collapsed };
+            _tab3d = new ToggleButton { Content = "3D", MinWidth = 44, Padding = new Thickness(8, 2, 8, 2), Visibility = Visibility.Collapsed, IsChecked = true };
+            _tab2d = new ToggleButton { Content = Loc.T("2D", "2D"), MinWidth = 44, Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 0), Visibility = Visibility.Collapsed };
+            _tab3d.Click += (_, _) => Safe(() => { _show3d = true; ApplyPreviewTab(); });
+            _tab2d.Click += (_, _) => Safe(() => { _show3d = false; ApplyPreviewTab(); });
+            var pvHeader = new DockPanel { Margin = new Thickness(0, 0, 0, 6), LastChildFill = false };
+            var pvTitle = UiKit.Text(Loc.T("Pré-visualização", "Preview"), 12, true);
+            DockPanel.SetDock(pvTitle, Dock.Left);
+            pvHeader.Children.Add(pvTitle);
+            var tabs = new StackPanel { Orientation = Orientation.Horizontal };
+            tabs.Children.Add(_tab3d);
+            tabs.Children.Add(_tab2d);
+            DockPanel.SetDock(tabs, Dock.Right);
+            pvHeader.Children.Add(tabs);
+            pv.Children.Add(pvHeader.At(0, 0));
+            var host = new Grid();
+            host.Children.Add(_canvas);
+            host.Children.Add(_view3d);
+            var canvasBorder = new Border { Child = host, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(4) };
             canvasBorder.SetResourceReference(Border.BorderBrushProperty, "TT.Border");
             pv.Children.Add(canvasBorder.At(0, 1));
             pv.Children.Add(_previewInfo.At(0, 2));
@@ -403,7 +424,17 @@ internal sealed class OptionsWindow : Window
             Mouse.OverrideCursor = Cursors.Wait;
             var model = _preview(_options);
             _canvas.Model = model;
-            if (_previewInfo != null) _previewInfo.Text = model?.Info ?? "";
+            var has3d = model?.Has3D == true;
+            if (_view3d != null)
+            {
+                _view3d.Scene = has3d ? model!.Scene : null;
+                _tab3d!.Visibility = _tab2d!.Visibility = has3d ? Visibility.Visible : Visibility.Collapsed;
+            }
+            ApplyPreviewTab(has3d);
+            var info = model?.Info ?? "";
+            if (model?.Scene?.Truncated == true)
+                info += Loc.T(" · 3D mostra só parte dos elementos (muitos para exibir)", " · 3D shows only part of the elements (too many to display)");
+            if (_previewInfo != null) _previewInfo.Text = info;
         }
         catch (Exception ex)
         {
@@ -414,6 +445,17 @@ internal sealed class OptionsWindow : Window
         {
             Mouse.OverrideCursor = null;
         }
+    }
+
+    private void ApplyPreviewTab(bool? available = null)
+    {
+        if (_view3d == null || _canvas == null) return;
+        var has3d = available ?? _tab3d?.Visibility == Visibility.Visible;
+        var show3d = has3d && _show3d;
+        _view3d.Visibility = show3d ? Visibility.Visible : Visibility.Collapsed;
+        _canvas.Visibility = show3d ? Visibility.Collapsed : Visibility.Visible;
+        if (_tab3d != null) _tab3d.IsChecked = show3d;
+        if (_tab2d != null) _tab2d.IsChecked = !show3d;
     }
 
     private void Accept()

@@ -11,6 +11,14 @@ public sealed class PreviewModel
     public List<PreviewShape> Shapes { get; } = new();
     public string? Info { get; set; }
 
+    /// <summary>Cena 3D opcional (mostrada na aba 3D do diálogo).</summary>
+    public Scene3? Scene { get; set; }
+
+    /// <summary>Cena 3D, criada sob demanda.</summary>
+    public Scene3 S3 => Scene ??= new Scene3();
+
+    public bool Has3D => Scene != null && !Scene.IsEmpty;
+
     public PreviewModel Polygon(Polygon2 poly, string? fill = "#D9C2AE", string stroke = "#6B4A33", double width = 1)
     {
         if (!poly.IsEmpty) Shapes.Add(new PreviewShape { Points = poly.Points.ToList(), Closed = true, Fill = fill, Stroke = stroke, Width = width });
