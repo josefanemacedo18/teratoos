@@ -23,7 +23,7 @@ O painel abre sozinho ao iniciar o Revit. Isso pode ser desligado nas configura�
 
 ### Pastas do plugin
 
-Tudo fica em `%AppData%\TeraTools` (use **Geral ▸ Abrir pasta de dados**):
+Tudo fica em `%AppData%\TeraTools` (use **Geral ▸ Diagnóstico ▸ Abrir a pasta de dados e logs**):
 
 | Pasta/arquivo | Conteúdo |
 |---|---|
@@ -43,7 +43,7 @@ Tudo fica em `%AppData%\TeraTools` (use **Geral ▸ Abrir pasta de dados**):
 2. **Diálogo de opções:**
    - Os campos são agrupados por assunto. Alguns só aparecem quando fazem sentido; por exemplo, "Espaçamento" só aparece no modo "Por espaçamento".
    - **Medidas:** um número sozinho usa a unidade do projeto. Você também pode escrever a unidade (`1,20 m`, `120 cm`, `1200 mm`).
-   - **Pré-visualização:** muitos diálogos mostram um desenho do resultado que se atualiza enquanto você muda as opções.
+   - **Pré-visualização 2D e 3D:** muitos diálogos mostram o resultado, atualizado enquanto você muda as opções, **antes de qualquer alteração no modelo**. Na aba **3D**: arraste com o botão esquerdo para girar, com o botão direito (ou do meio) para mover, use a roda do mouse para aproximar e dê **duplo clique** para enquadrar tudo. A aba **2D** mostra a planta ou a vista frontal com as medidas.
    - **Presets:** salve as opções com um nome para reutilizar. Um preset pode ser **pessoal** (só no seu computador), **do projeto** (fica dentro do .rvt e vai junto com o arquivo) ou de **biblioteca da equipe** (somente leitura, numa pasta compartilhada).
    - O plugin lembra as **últimas opções** que você usou em cada ferramenta.
 3. **Execução:** tudo vira **um único Desfazer**. Avisos do Revit que apareceriam dezenas de vezes são recolhidos e listados no relatório.
@@ -86,16 +86,16 @@ O plugin cria e vincula sozinho os parâmetros `TT_` de que precisa: código, am
 
 ### Projeto de interiores, do zero
 
-1. **Interiores ▸ Criar ambientes automaticamente**, depois **Numerar ambientes** e **Padronizar nomes e códigos**.
+1. Crie os ambientes com o comando nativo do Revit (**Arquitetura ▸ Ambiente ▸ Colocar ambientes automaticamente**). Depois use **Interiores ▸ Numerar ambientes** e **Padronizar nomes e códigos**.
 2. **Materiais ▸ Biblioteca de materiais:** crie no projeto os materiais que você usa.
 3. **Materiais ▸ Acabamentos por ambiente:** regras como "Banh* → porcelanato" preenchem piso, parede, forro e rodapé de cada ambiente.
-4. **Pisos:** use **Piso por ambiente**, depois **Paginação de revestimento** (peças reais com juntas e ponto de partida) e **Rodapés automáticos**.
+4. **Pisos:** use **Piso por ambiente (Floor Tracer)**, depois **Paginação de revestimento** (peças reais com juntas e ponto de partida) e **Rodapés automáticos**. **Unir pisos (Floor Merger)** junta pisos vizinhos num só, **Dividir piso (Floor Splitter)** separa regiões, e **Preencher pisos (Floor Filler)** cria piso só onde o ambiente ainda não tem.
 5. **Interiores ▸ Forros:** **Forro por ambiente**, ou **Sanca e rebaixo** para forros com rebaixo perimetral e fenda de luz.
 6. **Interiores ▸ Paredes:** **Revestimento de parede** (barrados e revestimentos que recortam portas e janelas), **Ripado** e **Boiserie**.
-7. **Interiores ▸ Mobiliário:** use **Inserir mobiliário**, **Distribuir**, **Encostar na parede** e **Layouts salvos**; depois confira com **Áreas de uso**.
+7. **Interiores ▸ Mobiliário:** insira os móveis com o comando nativo **Componente (CM)**; depois use **Distribuir ao longo de parede/linha**, **Encostar na parede** e **Layouts salvos**, e confira com **Áreas de uso**.
 8. **Interiores ▸ Ergonomia e acessibilidade:** ajuste as regras de referência para o seu projeto.
 9. **Interiores ▸ Iluminação:** use **Luminárias em grade** (por espaçamento ou lux estimado), **Sobre mobiliário** e **Grupos e circuitos**.
-10. **Documentação:** use **Conjunto de plantas**, **Vistas por ambiente** (planta e quatro elevações), **Montar pranchas**, **Cotas** e **Etiquetas**, e por fim **Exportar PDF**.
+10. **Documentação:** use **Conjunto de plantas**, **Vistas por ambiente** (planta e quatro elevações), **Montar pranchas** e **Cotas internas dos ambientes**. Para etiquetar e exportar PDF/DWG, use os comandos nativos (**Etiquetar todos não etiquetados**, **Exportar ▸ PDF**).
 11. **Quantitativos:** use **Levantamento** e **Orçamento**.
 12. **Qualidade ▸ Verificação de qualidade:** rode antes de cada entrega.
 
@@ -110,11 +110,18 @@ O plugin cria e vincula sozinho os parâmetros `TT_` de que precisa: código, am
 
 ### Geradores paramétricos
 
-- **Gerador de padrões:** grade, desencontrado, losango, triangular, hexagonal, radial, espiral e aleatório controlado, com variação por gradiente linear ou radial, ruído, fórmula ou imagem. Funciona em face plana ou curva, retângulo ou ambiente.
+- **Gerador de padrões (estilo Pixy):** clique numa face plana ou curva (parede, piso, forro ou cobertura) e escolha o desenho:
+  - **Padrões:** hexágono, Voronoi (células irregulares), estrela (Star Burst), círculos, losangos, triângulos, quadrados, ondas e tijolos.
+  - **Saída:** **furos reais** (vazios que recortam o elemento, como um cobogó ou chapa perfurada) ou **peças em relevo** (sólidos sobre a face).
+  - **Controle:** tamanho da célula, proporção de abertura (quanto de cada célula vira furo), escala, rotação, pontas e raio interno da estrela, amplitude e comprimento das ondas.
+  - **Fade:** o tamanho dos furos diminui ao longo da face, de forma linear, radial (a partir de um centro) ou por ruído. A espessura das peças pode acompanhar o fade.
+  - **Aleatório:** variação de tamanho, rotação, posição e falhas, com semente para repetir o mesmo resultado.
+  - O resultado é **uma família** "TT Padrão …" no projeto, com parâmetro de **Material**. Para mudar, use **Editar sistema gerado**.
 - **Imagem para blocos:** transforma uma imagem em mosaico de peças, com relevo pela tonalidade e cores convertidas em materiais.
 - **Aletas e brises:** ao longo de parede ou linha, com rotação variável (linear, onda, aleatória, atrator ou fórmula) e interrupção nas janelas.
-- **Quadro espacial** e **Painéis cinéticos**: este último tem estados de abertura (atualize com "Atualizar estado cinético").
-- **Temas:** **Paleta de cores**, **Colorir por parâmetro** (filtros e legenda) e **Estilo de apresentação**.
+- **Quadro espacial:** malhas quadrado sobre quadrado (deslocada ou alinhada) e triangular, de 2 a 6 camadas, com nós esféricos e quantitativo de barras.
+- **Painéis cinéticos:** painéis com estado de abertura por regra. Para mudar o estado, use **Editar sistema gerado**.
+- **Temas:** o **Gerador de temas** aplica um visual completo (claro, croqui, maquete branca, monocromático, realista, técnico ou personalizado) à vista ativa, a vistas escolhidas ou a cópias delas. Também há **Paleta de cores** e **Colorir por parâmetro** (filtros e legenda).
 
 ---
 

@@ -2,12 +2,14 @@
 
 Plugin para **arquitetura de interiores, marcenaria e documentação** no Autodesk Revit 2027, com geradores paramétricos inspirados no Pixy Tools. Ele cria **elementos BIM editáveis**: pisos, forros, paredes, famílias paramétricas e tabelas nativas do Revit. Nada fica "morto" no modelo.
 
-- **124 ferramentas** em **14 módulos**, numa aba própria chamada **Téra Tools** e num painel lateral com busca
+- **80 ferramentas** em **11 módulos**, numa aba própria chamada **Téra Tools** e num painel lateral com busca
+- Sem ferramentas repetidas: tudo o que o Revit já faz nativamente com a mesma precisão foi retirado (veja [docs/AUDITORIA.md](docs/AUDITORIA.md))
+- **Pré-visualização 3D** nos geradores, na marcenaria, nos forros, na iluminação e nas paredes: você gira, aproxima e vê o resultado **antes** de aplicar
 - Português e inglês
 - Cada operação vira **um único Desfazer** (Ctrl+Z) e termina com um **relatório** que pode ser exportado para Excel, CSV ou HTML
 - Presets reutilizáveis (pessoais, do projeto ou da equipe), histórico de operações e ajuda em cada ferramenta
 
-> **Situação atual: versão 0.1.0, primeira versão completa.** O código foi compilado contra a API oficial do Revit 2027, e os testes automáticos do núcleo passam (102 testes). Ainda **não foi executado dentro do Revit**: o ambiente onde ele foi desenvolvido não tem o Revit. Nos primeiros usos podem aparecer erros. Quando aparecer um, siga as instruções de [Quando algo der errado](#quando-algo-der-errado) para que ele seja corrigido.
+> **Situação atual: versão 0.2.0.** O código foi compilado contra a API oficial do Revit 2027, e os testes automáticos do núcleo passam (132 testes). Esta versão corrige o erro **"Object of type 'System.Double' cannot be converted to type 'System.Int32'"** e os fechamentos do Revit causados por ele (a explicação está em [docs/AUDITORIA.md](docs/AUDITORIA.md)). O plugin ainda **não foi executado dentro do Revit**: o ambiente onde ele foi desenvolvido não tem o Revit. Se aparecer algum erro, siga as instruções de [Quando algo der errado](#quando-algo-der-errado) para que ele seja corrigido.
 
 ---
 
@@ -50,7 +52,7 @@ Você não precisa saber programar. O GitHub compila o plugin sozinho a cada atu
 1. Clique em **Painel Téra**, o primeiro botão da aba. Ele abre um painel lateral com todas as ferramentas, uma **busca** (aceita palavras com ou sem acento), **favoritos** (estrela), **recentes** e **histórico**.
 2. Quase todas as ferramentas funcionam do mesmo jeito:
    1. Selecione os elementos ou ambientes (ou selecione quando o plugin pedir).
-   2. Ajuste as opções no diálogo. Muitos diálogos têm **pré-visualização**, e você pode **salvar presets**.
+   2. Ajuste as opções no diálogo. Muitos diálogos têm **pré-visualização em 2D e 3D** (arraste para girar, botão direito para mover, roda do mouse para aproximar, duplo clique para enquadrar), e você pode **salvar presets**.
    3. Confirme. Tudo é feito numa única operação: se não gostar, **Ctrl+Z** desfaz tudo de uma vez.
    4. Leia o **relatório**: ele mostra o que foi criado, avisos e tabelas, e pode **selecionar os elementos** citados ou **exportar para Excel**.
 3. Nos campos de medida, um número sozinho usa a unidade do projeto. Você também pode escrever a unidade: `1,20 m`, `120 cm` ou `1200 mm`.
@@ -66,20 +68,17 @@ O guia completo está em [docs/GUIA.md](docs/GUIA.md), e a lista de todas as fer
 
 | Módulo | Ferramentas | Destaques |
 |---|---|---|
-| Geral | 6 | Painel com busca, favoritos e histórico; configurações; ajuda; diagnóstico |
-| Modelagem | 13 | Alinhar, distribuir, matrizes linear e radial, copiar, girar, espelhar, elevação, redimensionar, agrupar, substituir tipo mantendo parâmetros |
-| Seleção | 6 | Filtro avançado (categoria, família, tipo, material, parâmetro, ambiente, nível), semelhantes, isolar, ocultar e revelar |
-| Análise | 3 | Verificação de colisões, medições |
-| Geradores | 11 | Padrões paramétricos, imagem para blocos, brises, quadro espacial, painéis cinéticos, paletas, colorir por parâmetro, estilos de apresentação |
-| Geometria | 12 | Unir e recortar, booleanas, partes, aberturas, sólido por perfil, espessura em face, converter linhas/CAD, verificar geometria |
-| Pisos | 8 | Piso por ambiente, regiões, faixas e soleiras, **paginação com juntas e ponto de partida**, rodapés, quantitativos de peças e caixas |
-| Interiores | 27 | Ambientes (criar, numerar, códigos, planilha, vistas), mobiliário e layouts, **ergonomia e acessibilidade com regras editáveis**, iluminação, forros e sancas, pintura, revestimentos, ripado e boiserie |
+| Geral | 4 | Painel com busca, favoritos, recentes e histórico; configurações; ajuda; diagnóstico e pasta de logs |
+| Modelagem | 5 | **Filtro avançado** (categoria, família, tipo, material, parâmetro, ambiente, nível), elementos do ambiente, **distribuir pelo ponto de inserção**, **girar cada elemento no lugar**, converter linhas/CAD em elementos |
+| Geradores | 10 | **Gerador de padrões no estilo Pixy** (hexágono, Voronoi, estrela, círculos, losangos, triângulos, quadrados, ondas e tijolos, com fade e furos reais), imagem para blocos, brises, quadro espacial, painéis cinéticos, paletas, colorir por parâmetro, **gerador de temas de vista** |
+| Pisos | 9 | **Floor Tracer, Splitter, Merger e Filler**, faixas e soleiras, **paginação com juntas e ponto de partida**, rodapés, quantitativo de peças e caixas, vistas de paginação |
+| Interiores | 23 | Ambientes (numerar, códigos, parâmetros, verificação, vistas), mobiliário e layouts, **ergonomia e acessibilidade com regras editáveis**, iluminação, forros e sancas, pintura, revestimentos, ripado e boiserie |
 | Marcenaria | 7 | **Módulos paramétricos** (armários, aéreos, torres, nichos, roupeiros, gabinetes, ilhas), composição na parede, detalhamento, **plano de corte, ferragens, Excel/CSV e nesting** |
-| Materiais | 6 | Biblioteca pessoal, aplicar, acabamentos por ambiente, substituir, ficha técnica, relatório de uso |
-| Documentação | 15 | Conjuntos de plantas, cortes e 3D por ambiente, pranchas automáticas, carimbo, índice, **PDF/DWG**, cotas, etiquetas, legendas e notas |
-| Quantitativos | 4 | Tabelas, levantamento em Excel, **orçamento com a sua tabela de preços**, comparação antes × depois |
-| Qualidade | 2 | Verificação do modelo com **regras editáveis em planilha** |
-| Projeto | 4 | Configurações do projeto, presets, transferência de padrões entre projetos, processamento em lote |
+| Materiais | 4 | Biblioteca pessoal, acabamentos por ambiente, substituir, ficha técnica com relatório de uso |
+| Documentação | 9 | Conjuntos de plantas, cortes e 3D por ambiente, pranchas automáticas, renumeração, cotas internas, legendas e notas |
+| Quantitativos | 4 | Tabelas (inclusive de ambientes), levantamento em Excel, **orçamento com a sua tabela de preços**, comparação antes × depois |
+| Qualidade | 2 | Verificação do modelo (inclusive geometria) com **regras editáveis em planilha** |
+| Projeto | 3 | Presets e bibliotecas, transferência das configurações do Téra Tools entre projetos, processamento em lote |
 
 O que foi feito de cada item do seu pedido original está em [docs/STATUS.md](docs/STATUS.md).
 
@@ -89,7 +88,7 @@ O que foi feito de cada item do seu pedido original está em [docs/STATUS.md](do
 
 1. Quando ocorre um erro inesperado, o Téra Tools mostra uma **janela de erro**. Clique em **Copiar detalhes**.
 2. Cole o texto na conversa com o Claude e conte, em uma frase, o que você estava fazendo (por exemplo: "rodei Paginação de revestimento num piso de 3×4 m").
-3. Se o Revit fechar ou travar, os registros ficam em `%AppData%\TeraTools\logs`. Em **Geral ▸ Abrir pasta de dados** você chega lá direto. Envie o arquivo mais recente.
+3. Se o Revit fechar ou travar, os registros ficam em `%AppData%\TeraTools\logs`. Em **Geral ▸ Diagnóstico ▸ Abrir a pasta de dados e logs** você chega lá direto. Envie o arquivo mais recente.
 
 Mensagens em português que explicam o que fazer (por exemplo, "Escolha o tipo de forro") **não são erros do plugin**: são orientações.
 
@@ -99,7 +98,8 @@ Mensagens em português que explicam o que fazer (por exemplo, "Escolha o tipo d
 
 Estes limites são intencionais, para não prometer o que o Revit não garante:
 
-- **Booleanas e modificações de faces** dependem do tipo de elemento. O plugin avisa quando um elemento não aceita a operação, em vez de falhar em silêncio.
+- **Furos do Gerador de padrões** usam vazios de família, o mesmo mecanismo de um vazio no Editor de famílias. Só funcionam em elementos que o Revit deixa recortar por vazio (em geral paredes, pisos, forros e coberturas). O plugin avisa quando o elemento não aceita; nesse caso, use a saída em relevo.
+- **Unir e preencher pisos** usam operações booleanas do Revit; contornos muito complexos podem ser recusados, e o plugin informa quais.
 - **Ergonomia e acessibilidade** usam valores de referência **editáveis** que você define. O relatório aponta itens para revisão e **nunca declara conformidade** com normas.
 - **Nesting de chapas** é um otimizador próprio, bom para orçamento e planejamento. Confira com o fornecedor. Arquivos de **CNC** específicos de cada máquina **não** são gerados: há um CSV genérico de fabricação, que você ajusta ao seu software.
 - **Iluminação pelo método dos lúmens** é um pré-dimensionamento. O cálculo luminotécnico final deve ser feito em software próprio.

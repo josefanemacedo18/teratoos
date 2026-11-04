@@ -1,13 +1,13 @@
 # Téra Tools — referência das ferramentas
 
-Lista gerada a partir do código-fonte: **79 ferramentas** em 11 módulos. No Revit, cada ferramenta também tem uma página de ajuda (botão **Ajuda** ou tecla **F1** no diálogo, ou no painel Téra).
+Lista gerada a partir do código-fonte: **80 ferramentas** em 11 módulos. No Revit, cada ferramenta também tem uma página de ajuda (botão **Ajuda** ou tecla **F1** no diálogo, ou no painel Téra).
 
 ## Índice
 
 - [Geral](#geral) — Painel, busca, configurações e ajuda (4)
 - [Modelagem](#modelagem) — Distribuir, girar no lugar, seleção avançada e conversão de CAD (5)
 - [Geradores](#geradores) — Padrões, imagem, brises, quadros espaciais, cinético e temas (10)
-- [Pisos](#pisos) — Pisos, paginação, rodapés e revestimentos (8)
+- [Pisos](#pisos) — Pisos, paginação, rodapés e revestimentos (9)
 - [Interiores](#interiores) — Ambientes, mobiliário, ergonomia, iluminação, forros e paredes (23)
 - [Marcenaria](#marcenaria) — Módulos planejados, detalhamento e plano de corte (7)
 - [Materiais](#materiais) — Biblioteca, aplicação e especificação de materiais (4)
@@ -72,9 +72,17 @@ Seleciona, isola ou oculta por categoria, família, tipo, material, nível, ambi
 ### Distribuir
 `modeling.distribute`
 
-Distribui elementos uniformemente (centros ou vãos iguais) ou com espaçamento fixo.
+Distribui móveis, luminárias, painéis e outros elementos com espaçamento igual, vão livre igual ou valores fixos — medindo pelo ponto de inserção ou pela geometria real.
 
-> Os elementos são ordenados pela posição na direção escolhida. Nos modos 'iguais', o primeiro e o último ficam no lugar; nos modos 'fixos', o primeiro fica no lugar e os demais são reposicionados.
+> 1. Selecione 2 ou mais elementos.
+>
+> 2. Escolha a direção (horizontal/vertical da vista ou altura) e o modo.
+>
+> 3. Confira a pré-visualização: cinza = posição atual, laranja = nova posição.
+>
+> Modos 'iguais': o primeiro e o último ficam onde estão. Modos 'fixos': o primeiro fica e os demais se ajustam. Elementos fixados (pin) são ignorados e listados.
+>
+> O Revit não tem comando de distribuir: esta ferramenta mede pelo ponto de inserção (exato) ou pelos vértices da geometria real — nunca pela caixa envolvente.
 
 ### Elementos do ambiente
 `selection.byroom`
@@ -84,7 +92,9 @@ Seleciona (ou isola) os elementos que estão dentro dos ambientes escolhidos.
 ### Rotacionar
 `modeling.rotate` · Transformar
 
-Gira elementos em torno do próprio centro, do centro do conjunto ou de um ponto, com variação aleatória opcional.
+Gira vários elementos de uma vez, cada um no próprio ponto de inserção (o que o Revit não faz), em torno do conjunto ou de um ponto, com variação aleatória opcional.
+
+> Útil para girar cadeiras, luminárias e vegetação no lugar. Com 'variação aleatória' cada elemento recebe um ângulo diferente (estável pela semente). Elementos fixados (pin) são ignorados.
 
 ### Converter linhas/CAD em elementos
 `geo.convert`
@@ -100,23 +110,19 @@ _Padrões, imagem, brises, quadros espaciais, cinético e temas_
 ### Gerador de padrões
 `gen.pattern`
 
-Padrões lineares, retangulares, triangulares, hexagonais, radiais, espirais e aleatórios em faces planas/curvas, com gradientes, atratores, relevo e perfurações.
+Padrões paramétricos (hexagonal, Voronoi, star burst, círculos, losangos, triângulos, quadrados, ondas, tijolos) como furos reais ou relevo sólido em faces planas e curvas.
 
-> 1. Escolha onde aplicar (face plana, face curva, retângulo ou ambiente) e a saída.
+> 1. Clique na face de uma parede, piso, forro ou telhado (plana ou curva).
 >
-> 2. Ajuste distribuição, módulo e gradiente vendo a pré-visualização.
+> 2. Escolha o padrão e a saída: Vazios recortam furos reais no elemento; Sólidos criam relevo extrudado da face.
 >
-> 3. Clique em Gerar.
+> 3. Ajuste densidade, proporção abertura/sólido, escala, rotação, aleatoriedade e o efeito fade, olhando a pré-visualização 2D/3D.
 >
-> • Família paramétrica: cada módulo é um TT_Bloco editável (largura, profundidade, altura e material por instância).
+> 4. Confirme. O padrão vira uma família de Modelo genérico com as formas exatas; os vazios usam o corte nativo do Revit.
 >
-> • Forma livre: formas exatas (círculos, hexágonos...) num elemento leve por material.
+> Para mudar depois: Geradores ▸ Editar sistema gerado (as opções reabrem e o padrão é refeito no mesmo lugar).
 >
-> • Perfurações: abre furos no piso/forro/telhado (formas exatas) ou na parede (retângulos).
->
-> • Para editar depois: Geradores › Editar sistema gerado.
->
-> Limitação: em faces curvas os módulos ficam tangentes à superfície no centro de cada célula; o espaçamento é medido sobre a superfície desenrolada (aproximado).
+> Dica: em paredes, as janelas e portas são respeitadas — nenhuma forma é criada sobre elas.
 
 ### Imagem para blocos
 `gen.image`
@@ -174,10 +180,18 @@ Cria filtros de vista por categoria e valor de parâmetro, com cores, transparê
 
 > Ex.: colorir mobiliário por fornecedor, ambientes por departamento, pisos por material ou paredes por fase. Depois de escolher as categorias, a lista mostra apenas parâmetros filtráveis em comum. Cada valor vira um filtro "TT Cor ..." editável normalmente em Visibilidade/Gráficos.
 
-### Estilo de apresentação
+### Gerador de temas
 `gen.viewstyle` · Temas
 
-Aplica configurações gráficas de apresentação (estilo visual, linhas à mão, sombras, fundo, anotações) e salva como preset reutilizável.
+Temas de vista prontos (apresentação, croqui, maquete branca, monocromático, realista, técnico) ou personalizados, aplicados em lote a várias vistas para padronizar a apresentação.
+
+> 1. Escolha um tema pronto ou "Personalizado".
+>
+> 2. Escolha onde aplicar: vista ativa, várias vistas de uma vez, ou cópias delas (as originais ficam intactas).
+>
+> 3. Salve seus temas como presets (pessoais ou do projeto) para manter o padrão gráfico em todo o escritório.
+>
+> O tema muda estilo visual, linhas à mão, sombras, cores de superfície e linha das categorias de modelo, fundo das vistas 3D e anotações. Vistas controladas por modelo de vista precisam ser desvinculadas (opção marcada por padrão).
 
 ### Editar sistema gerado
 `gen.edit`
@@ -195,15 +209,27 @@ Seleciona todos os elementos do sistema gerado ao qual o elemento escolhido pert
 
 _Pisos, paginação, rodapés e revestimentos_
 
-### Piso por ambiente
+### Piso por ambiente (Floor Tracer)
 `floor.byroom`
 
 Cria pisos pelo contorno dos ambientes (face de acabamento, eixo ou núcleo), com furos de pilares e shafts.
 
-### Dividir piso em regiões
+### Dividir piso (Floor Splitter)
 `floor.regions`
 
 Usa contornos fechados de linhas de modelo para criar regiões de piso com outro tipo/material, recortando o piso base.
+
+### Unir pisos (Floor Merger)
+`floor.merge`
+
+Une vários pisos do mesmo nível em um único piso com o contorno exato da união (arcos preservados), mantendo tipo e altura.
+
+> Selecione os pisos (do mesmo nível) e confirme. O contorno resultante é a união exata dos contornos. Pisos que não se tocam viram partes do mesmo piso. Pisos inclinados não são suportados.
+
+### Preencher pisos (Floor Filler)
+`floor.filler`
+
+Encontra o que falta de piso em cada ambiente (contorno do ambiente menos os pisos existentes) e cria pisos exatamente nessas sobras — ou só lista para conferência.
 
 ### Faixas, bordas e soleiras
 `floor.border`
@@ -236,11 +262,6 @@ Cria rodapés ao longo do contorno dos ambientes, interrompendo nas portas, sem 
 `floor.quantities`
 
 Calcula peças inteiras, recortes, perdas, caixas e área a comprar por ambiente, piso ou forro — sem alterar o modelo.
-
-### Ambientes sem revestimento
-`floor.uncovered`
-
-Lista ambientes sem piso modelado (ou sem acabamento de piso informado) para conferência.
 
 ### Vistas e tabelas de paginação
 `floor.pagingviews`
@@ -497,12 +518,12 @@ Coloca as vistas escolhidas nas pranchas sem sobreposição, usando o tamanho re
 
 Renumera pranchas em sequência (na ordem escolhida) ou os números de detalhe das vistas da prancha ativa, da esquerda para a direita e de cima para baixo.
 
-### Cotas automáticas
+### Cotas internas dos ambientes
 `doc.dims` · Anotação
 
-Cota automaticamente a largura e o comprimento internos dos ambientes ou as paredes com seus vãos (portas e janelas), na planta ativa.
+Cota automaticamente a largura e o comprimento internos de cada ambiente, de face a face de parede, alinhados às paredes — em todos os ambientes da vista de uma vez.
 
-> As cotas são associativas (referenciam as faces das paredes e os eixos das aberturas): se a parede mudar, a cota acompanha. Paredes curvas são ignoradas.
+> As cotas são associativas (referenciam as faces de acabamento das paredes): se a parede mudar, a cota acompanha. Para cotar paredes com portas e janelas use a Cota alinhada nativa do Revit (opção Paredes inteiras com aberturas). Ambientes com paredes curvas na direção da cota são ignorados.
 
 ### Legenda de acabamentos e cores
 `doc.legend` · Anotação
@@ -571,12 +592,12 @@ Gerencia os presets de todas as ferramentas: lista, exporta/importa arquivos par
 
 > Presets pessoais ficam em %AppData%\TeraTools\presets; presets do projeto ficam dentro do .rvt; uma pasta de biblioteca da equipe pode ser definida nas configurações gerais (somente leitura).
 
-### Transferir padrões entre projetos
+### Transferir configurações do Téra Tools
 `proj.transfer`
 
-Copia de outro projeto aberto os modelos de vista, filtros, materiais, padrões, tipos, tabelas e as configurações do Téra Tools (presets, regras, temas).
+Copia de outro projeto aberto (ou do seu arquivo-modelo) as configurações do Téra Tools guardadas no arquivo: presets do projeto, regras de verificação, regras de marcenaria e temas.
 
-> Abra o projeto de origem (ou o seu arquivo-modelo) no Revit, volte ao projeto de destino e rode a ferramenta. Itens com o mesmo nome no destino são mantidos (não são sobrescritos).
+> Abra o projeto de origem no Revit, volte ao projeto de destino e rode a ferramenta. Para modelos de vista, filtros, materiais e tipos use o comando nativo Gerenciar ▸ Transferir padrões de projeto.
 
 ### Processamento em lote
 `proj.batch`

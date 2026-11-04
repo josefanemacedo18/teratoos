@@ -295,3 +295,24 @@ Depois das remoções e fusões, o plugin fica com **78 ferramentas**.
 - `doc.dims` — Manter só as cotas internas de ambientes; paredes com vãos é nativo.
 - `proj.transfer` — Manter só a transferência das configurações do Téra Tools.
 - `proj.batch` — Manter; garantir o fechamento dos arquivos mesmo após falhas e detalhar o relatório.
+
+## Resultado depois da aprovação (Fases 3 e 4)
+
+O que foi aplicado difere da proposta acima em três pontos:
+
+- `gen.viewstyle` **não foi removido**: virou o **Gerador de temas**, que aplica de uma vez estilo visual, sombras, linhas de croqui, fundo e cores por categoria, e trabalha em várias vistas ou em cópias delas. Isso o modelo de vista nativo não faz num passo só.
+- `floor.uncovered` (Ambientes sem revestimento) foi substituído por **Preencher pisos (Floor Filler)**, que lista as áreas descobertas **e** pode criar o piso que falta.
+- Entrou **Unir pisos (Floor Merger)**, que não tem equivalente nativo.
+
+Resultado: **80 ferramentas em 11 módulos** (a lista completa está em [FERRAMENTAS.md](FERRAMENTAS.md)).
+
+Refinamentos da Fase 4 já feitos:
+
+- `modeling.distribute`: mede pelo ponto de inserção (exato) ou pelos vértices da geometria, nunca pela caixa envolvente; ignora elementos fixados; mostra antes e depois.
+- `modeling.rotate`: gira cada elemento no próprio ponto de inserção; ignora elementos fixados.
+- `gen.pattern`: reescrito no modelo do Pixy (9 padrões, furos reais ou relevo, fade, aleatoriedade, limite de quantidade), com pré-visualização 2D e 3D.
+- `gen.spaceframe`, `gen.image`, `gen.brise`, `gen.kinetic`, `wall.slats`, `wall.boiserie`, `join.module`, `join.run`, `ceil.cove` e `light.grid`: pré-visualização 3D.
+- `floor.paging`: recusa divisões grandes demais, que travariam o Revit.
+- `ceil.opening`: ignora furos sobrepostos.
+- `doc.dims`: só cotas internas de ambientes.
+- `proj.transfer`: só as configurações do Téra Tools.
