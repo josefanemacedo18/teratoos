@@ -306,6 +306,8 @@ internal static class GenRegistry
         ["gen.brise"] = BriseCommand.Regenerate,
         ["gen.spaceframe"] = SpaceFrameCommand.Regenerate,
         ["gen.kinetic"] = KineticCommand.Regenerate,
+        ["wall.slats"] = Interiors.SlatsCommand.Regenerate,
+        ["wall.boiserie"] = Interiors.BoiserieCommand.Regenerate,
     };
 
     public static (string SystemId, ProjectStorage.GeneratedSystem System) PickSystem(ToolContext ctx, string? toolFilter = null)
