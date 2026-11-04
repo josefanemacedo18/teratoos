@@ -1,5 +1,6 @@
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
+using TeraTools.Core.Colors;
 using TeraTools.Core.Geometry;
 using TeraTools.Core.Localization;
 using TeraTools.Core.Patterns;
@@ -13,437 +14,297 @@ namespace TeraTools.Revit.Tools.Generators;
 
 public enum PatternOutput
 {
-    [Text("Família paramétrica TT_Bloco (BIM editável)", "TT_Bloco parametric family (editable BIM)")] Parametric,
-    [Text("Forma livre (formas exatas, leve)", "Free form (exact shapes, light)")] FreeForm,
-    [Text("Família/tipo escolhido no projeto", "Family/type chosen in the project")] UserFamily,
-    [Text("Perfurações no hospedeiro (aberturas)", "Perforations in the host (openings)")] Perforation,
+    [Text("Vazios — furos recortados na superfície", "Voids — holes cut into the surface")] Void,
+    [Text("Sólidos — relevo extrudado da superfície", "Solids — relief extruded from the surface")] Solid,
 }
 
-public enum MaterialMode
-{
-    [Text("Um material", "Single material")] Single,
-    [Text("Dois materiais pelo valor do gradiente", "Two materials by gradient value")] ByValue,
-    [Text("Alternar (xadrez)", "Alternate (checker)")] Alternate,
-}
-
-/// <summary>Opções do gerador de padrões (mapeiam para <see cref="PatternSettings"/>).</summary>
+/// <summary>Opções do gerador de padrões (no estilo Pixy Tools).</summary>
 public sealed class PatternOptions : IValidatableOptions
 {
-    /// <summary>Superfície escolhida antes do diálogo (guardada para regenerar).</summary>
-    public SurfaceHost Host { get; set; } = SurfaceHost.PlanarFace;
+    [Opt("Padrão", "Pattern", Group = "Padrão|Pattern")]
+    public PixyPattern Pattern { get; set; } = PixyPattern.Hexagonal;
 
-    [Opt("Saída", "Output", Group = "Superfície|Surface")]
-    public PatternOutput Output { get; set; } = PatternOutput.Parametric;
+    [Opt("Saída", "Output", Group = "Padrão|Pattern")]
+    public PatternOutput Output { get; set; } = PatternOutput.Void;
 
-    [Opt("Família/tipo", "Family/type", Group = "Superfície|Surface", Kind = OptKind.FamilyType, Filter = "OST_GenericModel,OST_Furniture,OST_SpecialityEquipment,OST_LightingFixtures,OST_Casework,OST_Planting", VisibleIf = "Output=UserFamily")]
-    public string UserFamily { get; set; } = "";
+    [Opt("Tamanho da célula (densidade)", "Cell size (density)", Group = "Padrão|Pattern", Kind = OptKind.Length, Min = 0.02,
+        Tip = "Distância entre os centros das formas. Menor = mais denso.|Distance between shape centers. Smaller = denser.")]
+    public double CellSize { get; set; } = U.Mm(300);
 
-    [Opt("Distribuição", "Layout", Group = "Distribuição|Layout")]
-    public PatternLayout Layout { get; set; } = PatternLayout.Rectangular;
+    [Opt("Proporção abertura/sólido", "Opening/solid ratio", Group = "Padrão|Pattern", Min = 0.05, Max = 0.95,
+        Tip = "Quanto de cada célula a forma ocupa: 0,9 = aberturas grandes e nervuras finas.|How much of each cell the shape fills.")]
+    public double OpeningRatio { get; set; } = 0.6;
 
-    [Opt("Forma do módulo", "Module shape", Group = "Distribuição|Layout")]
-    public ModuleShape Shape { get; set; } = ModuleShape.Rectangle;
+    [Opt("Escala", "Scale", Group = "Padrão|Pattern", Min = 0.1, Max = 3)]
+    public double Scale { get; set; } = 1;
 
-    [Opt("Espaçamento X", "Spacing X", Group = "Distribuição|Layout", Kind = OptKind.Length, Min = 0.01)]
-    public double SpacingX { get; set; } = U.Mm(300);
+    [Opt("Rotação", "Rotation", Group = "Padrão|Pattern", Kind = OptKind.Angle)]
+    public double Rotation { get; set; }
 
-    [Opt("Espaçamento Y", "Spacing Y", Group = "Distribuição|Layout", Kind = OptKind.Length, Min = 0.01, VisibleIf = "Layout!=Radial,Spiral,Random,Linear")]
-    public double SpacingY { get; set; } = U.Mm(300);
+    [Opt("Pontas da estrela", "Star points", Group = "Padrão|Pattern", Min = 3, Max = 16, VisibleIf = "Pattern=StarBurst")]
+    public int StarPoints { get; set; } = 5;
 
-    [Opt("Largura do módulo", "Module width", Group = "Módulo|Module", Kind = OptKind.Length, Min = 0.001)]
-    public double ModuleWidth { get; set; } = U.Mm(250);
+    [Opt("Raio interno da estrela (0,1–0,9)", "Star inner radius (0.1–0.9)", Group = "Padrão|Pattern", Min = 0.1, Max = 0.9, VisibleIf = "Pattern=StarBurst")]
+    public double StarInner { get; set; } = 0.45;
 
-    [Opt("Altura do módulo", "Module height", Group = "Módulo|Module", Kind = OptKind.Length, Min = 0.001)]
-    public double ModuleHeight { get; set; } = U.Mm(250);
+    [Opt("Amplitude da onda (células)", "Wave amplitude (cells)", Group = "Padrão|Pattern", Min = 0, Max = 5, VisibleIf = "Pattern=Waves")]
+    public double WaveAmplitude { get; set; } = 0.6;
 
-    [Opt("Profundidade / relevo", "Depth / relief", Group = "Módulo|Module", Kind = OptKind.Length, Min = 0.001)]
-    public double Depth { get; set; } = U.Mm(20);
+    [Opt("Comprimento da onda (células)", "Wave length (cells)", Group = "Padrão|Pattern", Min = 1, Max = 100, VisibleIf = "Pattern=Waves")]
+    public double WaveLength { get; set; } = 8;
 
-    [Opt("Afastamento da superfície", "Offset from surface", Group = "Módulo|Module", Kind = OptKind.Length)]
-    public double SurfaceOffset { get; set; }
+    [Opt("Tamanho aleatório (0–1)", "Random size (0–1)", Group = "Aleatoriedade|Randomization", Min = 0, Max = 1)]
+    public double RandomSize { get; set; }
 
-    [Opt("Rotação da grade", "Grid rotation", Group = "Orientação|Orientation", Kind = OptKind.Angle)]
-    public double GridRotation { get; set; }
+    [Opt("Rotação aleatória (±)", "Random rotation (±)", Group = "Aleatoriedade|Randomization", Kind = OptKind.Angle, Min = 0, Max = 180)]
+    public double RandomRotation { get; set; }
 
-    [Opt("Rotação de cada módulo", "Module rotation", Group = "Orientação|Orientation", Kind = OptKind.Angle)]
-    public double ModuleRotation { get; set; }
+    [Opt("Posição aleatória (0–0,5)", "Random position (0–0.5)", Group = "Aleatoriedade|Randomization", Min = 0, Max = 0.5)]
+    public double RandomPosition { get; set; }
 
-    [Opt("Ponto inicial", "Start point", Group = "Orientação|Orientation")]
-    public PatternAnchor Anchor { get; set; } = PatternAnchor.RegionCenter;
+    [Opt("Remover formas ao acaso (0–1)", "Randomly remove shapes (0–1)", Group = "Aleatoriedade|Randomization", Min = 0, Max = 0.95)]
+    public double RandomSkip { get; set; }
 
-    [Opt("Deslocamento X", "Offset X", Group = "Orientação|Orientation", Kind = OptKind.Length)]
-    public double OffsetX { get; set; }
-
-    [Opt("Deslocamento Y", "Offset Y", Group = "Orientação|Orientation", Kind = OptKind.Length)]
-    public double OffsetY { get; set; }
-
-    [Opt("Anéis", "Rings", Group = "Radial|Radial", Min = 1, Max = 500, VisibleIf = "Layout=Radial")]
-    public int Rings { get; set; } = 6;
-
-    [Opt("Espaçamento entre anéis", "Ring spacing", Group = "Radial|Radial", Kind = OptKind.Length, Min = 0.01, VisibleIf = "Layout=Radial")]
-    public double RingSpacing { get; set; } = U.Mm(300);
-
-    [Opt("Raio inicial", "Inner radius", Group = "Radial|Radial", Kind = OptKind.Length, Min = 0, VisibleIf = "Layout=Radial")]
-    public double InnerRadius { get; set; }
-
-    [Opt("Módulos por anel (0 = automático)", "Modules per ring (0 = auto)", Group = "Radial|Radial", Min = 0, Max = 5000, VisibleIf = "Layout=Radial")]
-    public int PerRing { get; set; }
-
-    [Opt("Ângulo total", "Sweep angle", Group = "Radial|Radial", Kind = OptKind.Angle, Min = 1, Max = 360, VisibleIf = "Layout=Radial")]
-    public double Sweep { get; set; } = 360;
-
-    [Opt("Alinhar tangente", "Align tangent", Group = "Radial|Radial", VisibleIf = "Layout=Radial,Spiral")]
-    public bool AlignTangent { get; set; } = true;
-
-    [Opt("Quantidade na espiral", "Spiral count", Group = "Radial|Radial", Min = 1, Max = 100000, VisibleIf = "Layout=Spiral")]
-    public int SpiralCount { get; set; } = 400;
-
-    [Opt("Gradiente", "Gradient", Group = "Gradiente e variação|Gradient and variation")]
-    public GradientMode Gradient { get; set; } = GradientMode.None;
-
-    [Opt("Ângulo do gradiente", "Gradient angle", Group = "Gradiente e variação|Gradient and variation", Kind = OptKind.Angle, VisibleIf = "Gradient=Linear")]
-    public double GradientAngle { get; set; }
-
-    [Opt("Atrator X (a partir do canto)", "Attractor X (from corner)", Group = "Gradiente e variação|Gradient and variation", Kind = OptKind.Length, VisibleIf = "Gradient=Radial,Formula")]
-    public double AttractorX { get; set; } = U.M(1);
-
-    [Opt("Atrator Y (a partir do canto)", "Attractor Y (from corner)", Group = "Gradiente e variação|Gradient and variation", Kind = OptKind.Length, VisibleIf = "Gradient=Radial,Formula")]
-    public double AttractorY { get; set; } = U.M(1);
-
-    [Opt("Raio do atrator", "Attractor radius", Group = "Gradiente e variação|Gradient and variation", Kind = OptKind.Length, Min = 0.01, VisibleIf = "Gradient=Radial")]
-    public double AttractorRadius { get; set; } = U.M(3);
-
-    [Opt("Escala do ruído", "Noise scale", Group = "Gradiente e variação|Gradient and variation", Kind = OptKind.Length, Min = 0.01, VisibleIf = "Gradient=Noise")]
-    public double NoiseScale { get; set; } = U.M(2);
-
-    [Opt("Fórmula (0 a 1)", "Formula (0 to 1)", Group = "Gradiente e variação|Gradient and variation", Kind = OptKind.Formula, VisibleIf = "Gradient=Formula",
-        Tip = "Variáveis: x, y (m), u, v (0–1), i, j, n, d (dist. ao atrator, m), r (aleatório), w, h. Ex.: 0.5+0.5*sin(x*90)|Variables: x, y (m), u, v (0–1), i, j, n, d, r, w, h.")]
-    public string Formula { get; set; } = "u";
-
-    [Opt("Imagem do gradiente", "Gradient image", Group = "Gradiente e variação|Gradient and variation", Kind = OptKind.File, Filter = "Imagens|*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff;*.gif", VisibleIf = "Gradient=Image")]
-    public string ImagePath { get; set; } = "";
-
-    [Opt("Inverter gradiente", "Invert gradient", Group = "Gradiente e variação|Gradient and variation", VisibleIf = "Gradient!=None")]
-    public bool Invert { get; set; }
-
-    [Opt("Gradiente controla a escala", "Gradient drives scale", Group = "Gradiente e variação|Gradient and variation", VisibleIf = "Gradient!=None")]
-    public bool ApplyScale { get; set; } = true;
-
-    [Opt("Escala mínima", "Minimum scale", Group = "Gradiente e variação|Gradient and variation", Min = 0, Max = 10, VisibleIf = "ApplyScale&Gradient!=None")]
-    public double ScaleMin { get; set; } = 0.3;
-
-    [Opt("Escala máxima", "Maximum scale", Group = "Gradiente e variação|Gradient and variation", Min = 0, Max = 10, VisibleIf = "ApplyScale&Gradient!=None")]
-    public double ScaleMax { get; set; } = 1.0;
-
-    [Opt("Gradiente controla a profundidade", "Gradient drives depth", Group = "Gradiente e variação|Gradient and variation", VisibleIf = "Gradient!=None")]
-    public bool ApplyDepth { get; set; }
-
-    [Opt("Profundidade mínima", "Minimum depth", Group = "Gradiente e variação|Gradient and variation", Kind = OptKind.Length, Min = 0.001, VisibleIf = "ApplyDepth&Gradient!=None")]
-    public double DepthMin { get; set; } = U.Mm(10);
-
-    [Opt("Profundidade máxima", "Maximum depth", Group = "Gradiente e variação|Gradient and variation", Kind = OptKind.Length, Min = 0.001, VisibleIf = "ApplyDepth&Gradient!=None")]
-    public double DepthMax { get; set; } = U.Mm(120);
-
-    [Opt("Gradiente controla a rotação", "Gradient drives rotation", Group = "Gradiente e variação|Gradient and variation", VisibleIf = "Gradient!=None")]
-    public bool ApplyRotation { get; set; }
-
-    [Opt("Rotação máxima", "Maximum rotation", Group = "Gradiente e variação|Gradient and variation", Kind = OptKind.Angle, VisibleIf = "ApplyRotation&Gradient!=None")]
-    public double RotationMax { get; set; } = 90;
-
-    [Opt("Gradiente controla a densidade", "Gradient drives density", Group = "Gradiente e variação|Gradient and variation", VisibleIf = "Gradient!=None")]
-    public bool ApplyDensity { get; set; }
-
-    [Opt("Variação aleatória de posição (0–0,5)", "Random position jitter (0–0.5)", Group = "Gradiente e variação|Gradient and variation", Min = 0, Max = 0.5)]
-    public double JitterPosition { get; set; }
-
-    [Opt("Variação aleatória de rotação (±)", "Random rotation jitter (±)", Group = "Gradiente e variação|Gradient and variation", Kind = OptKind.Angle, Min = 0, Max = 180)]
-    public double JitterRotation { get; set; }
-
-    [Opt("Variação aleatória de escala (0–0,9)", "Random scale jitter (0–0.9)", Group = "Gradiente e variação|Gradient and variation", Min = 0, Max = 0.9)]
-    public double JitterScale { get; set; }
-
-    [Opt("Remover módulos ao acaso (0–1)", "Randomly remove modules (0–1)", Group = "Gradiente e variação|Gradient and variation", Min = 0, Max = 1)]
-    public double RemoveProbability { get; set; }
-
-    [Opt("Semente", "Seed", Group = "Gradiente e variação|Gradient and variation", Tip = "Mesma semente = mesmo resultado.|Same seed = same result.")]
+    [Opt("Semente", "Seed", Group = "Aleatoriedade|Randomization", Min = 0, Max = 99999, Tip = "Mesma semente = mesmo resultado.|Same seed = same result.")]
     public int Seed { get; set; } = 1;
 
-    [Opt("Recorte", "Clipping", Group = "Limites|Limits")]
-    public ClipMode Clip { get; set; } = ClipMode.FullyInside;
+    [Opt("Efeito fade", "Fade effect", Group = "Fade e escala|Fade and scale")]
+    public FadeMode Fade { get; set; } = FadeMode.None;
+
+    [Opt("Direção do fade", "Fade direction", Group = "Fade e escala|Fade and scale", Kind = OptKind.Angle, VisibleIf = "Fade=Linear",
+        Tip = "0° = da esquerda para a direita; 90° = de baixo para cima.|0° = left to right; 90° = bottom to top.")]
+    public double FadeAngle { get; set; }
+
+    [Opt("Tamanho no início do fade", "Size at fade start", Group = "Fade e escala|Fade and scale", Min = 0, Max = 2, VisibleIf = "Fade!=None")]
+    public double FadeFrom { get; set; } = 1;
+
+    [Opt("Tamanho no fim do fade", "Size at fade end", Group = "Fade e escala|Fade and scale", Min = 0, Max = 2, VisibleIf = "Fade!=None")]
+    public double FadeTo { get; set; } = 0.15;
+
+    [Opt("Centro horizontal (0–1)", "Center horizontal (0–1)", Group = "Fade e escala|Fade and scale", Min = 0, Max = 1, VisibleIf = "Fade=Radial|Pattern=StarBurst")]
+    public double CenterU { get; set; } = 0.5;
+
+    [Opt("Centro vertical (0–1)", "Center vertical (0–1)", Group = "Fade e escala|Fade and scale", Min = 0, Max = 1, VisibleIf = "Fade=Radial|Pattern=StarBurst")]
+    public double CenterV { get; set; } = 0.5;
+
+    [Opt("Espessura do relevo", "Relief thickness", Group = "Espessura|Thickness", Kind = OptKind.Length, Min = 0.002, VisibleIf = "Output=Solid")]
+    public double Thickness { get; set; } = U.Mm(40);
+
+    [Opt("Espessura aleatória (0–1)", "Random thickness (0–1)", Group = "Espessura|Thickness", Min = 0, Max = 1, VisibleIf = "Output=Solid")]
+    public double RandomThickness { get; set; }
+
+    [Opt("Espessura acompanha o fade", "Thickness follows the fade", Group = "Espessura|Thickness", VisibleIf = "Output=Solid")]
+    public bool ThicknessFollowsFade { get; set; }
+
+    [Opt("Afastamento da face", "Offset from face", Group = "Espessura|Thickness", Kind = OptKind.Length, VisibleIf = "Output=Solid")]
+    public double FaceOffset { get; set; }
+
+    [Opt("Profundidade do corte (0 = atravessa o elemento)", "Cut depth (0 = through the element)", Group = "Espessura|Thickness", Kind = OptKind.Length, Min = 0, VisibleIf = "Output=Void")]
+    public double CutDepth { get; set; }
 
     [Opt("Margem das bordas", "Edge margin", Group = "Limites|Limits", Kind = OptKind.Length, Min = 0)]
-    public double EdgeMargin { get; set; }
+    public double EdgeMargin { get; set; } = U.Mm(100);
 
-    [Opt("Modo de material", "Material mode", Group = "Materiais|Materials", VisibleIf = "Output!=Perforation")]
-    public MaterialMode MaterialMode { get; set; } = MaterialMode.Single;
+    [Opt("Limite de formas", "Shape limit", Group = "Limites|Limits", Min = 10, Max = 20000,
+        Tip = "Proteção de desempenho. Acima de ~3000 formas o Revit fica lento.|Performance guard. Above ~3000 shapes Revit gets slow.")]
+    public int MaxShapes { get; set; } = 3000;
 
-    [Opt("Material A", "Material A", Group = "Materiais|Materials", Kind = OptKind.Material, VisibleIf = "Output!=Perforation")]
-    public string MaterialA { get; set; } = "";
-
-    [Opt("Material B", "Material B", Group = "Materiais|Materials", Kind = OptKind.Material, VisibleIf = "MaterialMode!=Single&Output!=Perforation")]
-    public string MaterialB { get; set; } = "";
+    [Opt("Material", "Material", Group = "Material|Material", Kind = OptKind.Material, VisibleIf = "Output=Solid")]
+    public string Material { get; set; } = "";
 
     public IEnumerable<string> Validate()
     {
-        if (Output == PatternOutput.Perforation && (Host == SurfaceHost.Rectangle || Host == SurfaceHost.Room))
-            yield return Loc.T("Perfurações exigem uma face de um elemento hospedeiro (piso, forro, telhado ou parede).", "Perforations require a face of a host element (floor, ceiling, roof or wall).");
-        if (Output == PatternOutput.UserFamily && string.IsNullOrWhiteSpace(UserFamily))
-            yield return Loc.T("Escolha a família/tipo.", "Choose the family/type.");
-        if (Gradient == GradientMode.Image && string.IsNullOrWhiteSpace(ImagePath))
-            yield return Loc.T("Escolha a imagem do gradiente.", "Choose the gradient image.");
+        if (CellSize < U.Mm(20)) yield return Loc.T("Tamanho da célula muito pequeno (mínimo 20 mm).", "Cell size too small (minimum 20 mm).");
+        if (Fade != FadeMode.None && FadeFrom <= 0 && FadeTo <= 0) yield return Loc.T("O fade deixaria todas as formas com tamanho zero.", "The fade would make all shapes zero size.");
     }
 
-    public PatternSettings ToCore() => new()
+    public PixySettings ToCore() => new()
     {
-        Layout = Layout,
-        Shape = Shape,
-        SpacingX = SpacingX,
-        SpacingY = SpacingY,
-        ModuleWidth = ModuleWidth,
-        ModuleHeight = ModuleHeight,
-        Depth = Depth,
-        GridRotationDeg = GridRotation,
-        ModuleRotationDeg = ModuleRotation,
-        Anchor = Anchor,
-        OffsetX = OffsetX,
-        OffsetY = OffsetY,
-        RadialRings = Rings,
-        RingSpacing = RingSpacing,
-        InnerRadius = InnerRadius,
-        ModulesPerRing = PerRing,
-        SweepAngleDeg = Sweep,
-        AlignTangent = AlignTangent,
-        SpiralCount = SpiralCount,
-        Seed = Seed,
-        JitterPosition = JitterPosition,
-        JitterRotationDeg = JitterRotation,
-        JitterScale = JitterScale,
-        RemoveProbability = RemoveProbability,
-        Gradient = Gradient,
-        GradientAngleDeg = GradientAngle,
-        AttractorX = AttractorX,
-        AttractorY = AttractorY,
-        AttractorRadius = AttractorRadius,
-        NoiseScale = NoiseScale,
-        Formula = Formula,
-        InvertGradient = Invert,
-        ApplyToScale = ApplyScale && Gradient != GradientMode.None,
-        ScaleMin = ScaleMin,
-        ScaleMax = ScaleMax,
-        ApplyToDepth = ApplyDepth && Gradient != GradientMode.None,
-        DepthMin = DepthMin,
-        DepthMax = DepthMax,
-        ApplyToRotation = ApplyRotation && Gradient != GradientMode.None,
-        RotationMinDeg = 0,
-        RotationMaxDeg = RotationMax,
-        ApplyToDensity = ApplyDensity && Gradient != GradientMode.None,
-        Clip = Clip,
-        EdgeMargin = EdgeMargin,
+        Pattern = Pattern, CellSize = CellSize, OpeningRatio = OpeningRatio, Scale = Scale, RotationDeg = Rotation,
+        StarPoints = StarPoints, StarInnerRatio = StarInner, WaveAmplitude = WaveAmplitude, WaveLength = WaveLength,
+        RandomSize = RandomSize, RandomRotationDeg = RandomRotation, RandomPosition = RandomPosition, RandomSkip = RandomSkip, Seed = Seed,
+        Fade = Fade, FadeAngleDeg = FadeAngle, FadeFrom = FadeFrom, FadeTo = FadeTo, CenterU = CenterU, CenterV = CenterV, EdgeMargin = EdgeMargin,
     };
 }
 
 [Transaction(TransactionMode.Manual)]
 [Tool("gen.pattern", Modules.Generators, "Gerador de padrões", "Pattern generator", Order = 10, Large = true,
-    DescPt = "Padrões lineares, retangulares, triangulares, hexagonais, radiais, espirais e aleatórios em faces planas/curvas, com gradientes, atratores, relevo e perfurações.",
-    DescEn = "Linear, rectangular, triangular, hexagonal, radial, spiral and random patterns on planar/curved faces, with gradients, attractors, relief and perforations.",
-    HelpPt = "1. Escolha onde aplicar (face plana, face curva, retângulo ou ambiente) e a saída.\n2. Ajuste distribuição, módulo e gradiente vendo a pré-visualização.\n3. Clique em Gerar.\n\n• Família paramétrica: cada módulo é um TT_Bloco editável (largura, profundidade, altura e material por instância).\n• Forma livre: formas exatas (círculos, hexágonos...) num elemento leve por material.\n• Perfurações: abre furos no piso/forro/telhado (formas exatas) ou na parede (retângulos).\n• Para editar depois: Geradores › Editar sistema gerado.\n\nLimitação: em faces curvas os módulos ficam tangentes à superfície no centro de cada célula; o espaçamento é medido sobre a superfície desenrolada (aproximado).",
-    HelpEn = "1. Choose where to apply and the output.\n2. Adjust layout, module and gradient with the preview.\n3. Click Generate.\n\nTo edit later: Generators › Edit generated system.\n\nLimitation: on curved faces modules are tangent to the surface at each cell center; spacing is measured on the unrolled surface (approximate).",
-    Keywords = "padrao pattern hexagonal triangular radial perfuracao brise painel modulo gradiente atrator pixy")]
+    DescPt = "Padrões paramétricos (hexagonal, Voronoi, star burst, círculos, losangos, triângulos, quadrados, ondas, tijolos) como furos reais ou relevo sólido em faces planas e curvas.",
+    DescEn = "Parametric patterns (hexagonal, Voronoi, star burst, circles, diamonds, triangles, squares, waves, bricks) as real holes or solid relief on planar and curved faces.",
+    HelpPt = "1. Clique na face de uma parede, piso, forro ou telhado (plana ou curva).\n2. Escolha o padrão e a saída: Vazios recortam furos reais no elemento; Sólidos criam relevo extrudado da face.\n3. Ajuste densidade, proporção abertura/sólido, escala, rotação, aleatoriedade e o efeito fade, olhando a pré-visualização 2D/3D.\n4. Confirme. O padrão vira uma família de Modelo genérico com as formas exatas; os vazios usam o corte nativo do Revit.\n\nPara mudar depois: Geradores ▸ Editar sistema gerado (as opções reabrem e o padrão é refeito no mesmo lugar).\n\nDica: em paredes, as janelas e portas são respeitadas — nenhuma forma é criada sobre elas.",
+    HelpEn = "1. Click a wall, floor, ceiling or roof face (planar or curved).\n2. Choose the pattern and output: Voids cut real holes; Solids create relief.\n3. Adjust density, opening ratio, scale, rotation, randomization and fade, watching the 2D/3D preview.\n4. Confirm. The pattern becomes a Generic Model family with exact shapes; voids use Revit's native cut.\n\nTo change later: Generators ▸ Edit generated system.",
+    Keywords = "padrao padroes hexagonal voronoi estrela star burst furos perfurado vazio relevo fachada pattern void solid perforated facade pixy")]
 public sealed class PatternCommand : ToolCommand
 {
+    private const string ToolId = "gen.pattern";
+
     public override void Run(ToolContext ctx)
     {
-        var first = ctx.LoadOptions<PatternOptions>();
-        first.Host = PickHost(ctx);
-        var c = GenHost.Acquire(ctx, first.Host);
-        var o = ctx.Ask(first, preview: x => Preview(ctx, x, c), okText: Loc.T("Gerar", "Generate"));
+        var c = GenHost.Acquire(ctx, SurfaceHost.PlanarFace);
+        var o = ctx.LoadOptions<PatternOptions>();
+        o = ctx.Ask(o, preview: x => Preview(ctx, x, c), okText: Loc.T("Gerar", "Generate"));
         Generate(ctx, o, c, GenSystem.NewId());
     }
 
-    internal static SurfaceHost PickHost(ToolContext ctx)
+    internal static void Regenerate(ToolContext ctx, string optionsJson, string contextJson, string systemId)
     {
-        var options = new[]
+        var o = new PatternOptions();
+        Json.PopulateObject(o, optionsJson);
+        var c = Json.Deserialize<PlanarContext>(contextJson) ?? throw new ToolException(Loc.T("Registro do padrão inválido.", "Invalid pattern record."));
+        o = ctx.Ask(o, preview: x => Preview(ctx, x, c), okText: Loc.T("Regenerar", "Regenerate"), key: ToolId);
+        ctx.Group(ctx.Tool.Name, () =>
         {
-            Loc.T("Face plana (parede, piso, qualquer elemento)", "Planar face (wall, floor, any element)"),
-            Loc.T("Face curva", "Curved face"),
-            Loc.T("Retângulo por dois pontos", "Rectangle by two points"),
-            Loc.T("Ambiente", "Room"),
-        };
-        var i = Msg.Choose(Loc.T("Onde aplicar o padrão?", "Where to apply the pattern?"), ctx.Tool.Name, options);
-        if (i < 0) ctx.Cancel();
-        return (SurfaceHost)i;
+            ctx.Modify(Loc.T("Remover padrão anterior", "Remove previous pattern"), () =>
+            {
+                GenSystem.Delete(ctx.Doc, systemId);
+                PatternFamilyBuilder.DeleteFamily(ctx.Doc, FamilyName(systemId));
+            });
+            Generate(ctx, o, c, systemId);
+        });
     }
 
-    internal static List<PatternCell> Cells(ToolContext ctx, PatternOptions o, PlanarContext c, out Region2 region, out CurvedSurface? curved)
+    private static string FamilyName(string systemId) => "TT Padrão " + systemId;
+
+    /// <summary>Domínio 2D da face e função que leva cada célula para 3D.</summary>
+    private sealed class Surface
     {
-        curved = GenHost.Curved(ctx.Doc, c);
-        region = curved?.Domain ?? c.GetRegion();
-        var image = o.Gradient == GradientMode.Image && !string.IsNullOrWhiteSpace(o.ImagePath) ? ImageLoader.BrightnessSampler(o.ImagePath) : null;
-        var cells = PatternGenerator.Generate(o.ToCore(), region, image, ctx.Settings.ElementHardLimit + 1);
-        if (curved != null)
+        public Region2 Domain { get; init; } = null!;
+        public Frame3? Planar { get; init; }
+        public CurvedSurface? Curved { get; init; }
+
+        public Frame3 FrameAt(Vec2 p) => Planar is { } f ? f : Curved!.FrameAt(p);
+
+        /// <summary>Polígono no sistema local da célula (plano: o próprio; curvo: centrado no ponto da célula).</summary>
+        public Polygon2 Local(PixyCell cell) => Planar != null ? cell.Shape : cell.Shape.Translate(new Vec2(-cell.Center.X, -cell.Center.Y));
+
+        public Frame3 CellFrame(PixyCell cell) => Planar ?? Curved!.FrameAt(cell.Center);
+    }
+
+    private static Surface SurfaceOf(Document doc, PlanarContext c)
+    {
+        if (!c.Curved) return new Surface { Domain = c.GetRegion(), Planar = c.GetFrame() };
+        var cs = GenHost.Curved(doc, c) ?? throw new ToolException(Loc.T("A face curva não existe mais.", "The curved face no longer exists."));
+        return new Surface { Domain = cs.Domain, Curved = cs };
+    }
+
+    private static double HostThickness(Document doc, PlanarContext c)
+    {
+        var host = doc.GetElement(new ElementId(c.HostId));
+        if (host is Wall w) return w.Width;
+        if (host is HostObject ho && doc.GetElement(ho.GetTypeId()) is HostObjAttributes hoa && hoa.GetCompoundStructure() is { } cs) return cs.GetWidth();
+        var bb = host == null ? null : RevitGeo.Box(host);
+        return bb == null ? U.M(0.5) : Math.Max(U.Mm(50), Math.Min(bb.Max.X - bb.Min.X, Math.Min(bb.Max.Y - bb.Min.Y, bb.Max.Z - bb.Min.Z)));
+    }
+
+    private static List<PatternExtrusion> Extrusions(PatternOptions o, Surface s, List<PixyCell> cells, double hostThickness)
+    {
+        var list = new List<PatternExtrusion>(cells.Count);
+        foreach (var cell in cells)
         {
-            var cs = curved;
-            cells = cells.Where(cell => cs.IsInside(cell.Center)).ToList();
+            double z0, z1;
+            if (o.Output == PatternOutput.Void)
+            {
+                var depth = o.CutDepth > 0 ? o.CutDepth : hostThickness + U.Mm(50);
+                z0 = -depth;
+                z1 = U.Mm(20);
+            }
+            else
+            {
+                var t = o.Thickness * (1 + o.RandomThickness * (cell.Random01 * 2 - 1));
+                if (o.ThicknessFollowsFade) t *= Math.Clamp(cell.Factor, 0.05, 3);
+                // Quantiza a espessura (agrupa extrusões iguais = família mais leve).
+                t = Math.Max(U.Mm(1), Math.Round(t / U.Mm(2)) * U.Mm(2));
+                z0 = o.FaceOffset;
+                z1 = o.FaceOffset + t;
+            }
+            list.Add(new PatternExtrusion(s.CellFrame(cell), s.Local(cell), z0, z1));
         }
-        return cells;
+        return list;
     }
 
     private static PreviewModel Preview(ToolContext ctx, PatternOptions o, PlanarContext c)
     {
-        var cells = Cells(ctx, o, c, out var region, out var curved);
+        var s = SurfaceOf(ctx.Doc, c);
+        var cells = PixyPatternGenerator.Generate(o.ToCore(), s.Domain, Math.Min(o.MaxShapes, 6000));
         var pm = new PreviewModel();
-        pm.Region(region);
-        foreach (var cell in cells.Take(6000)) pm.Polygon(cell.Outline, GenHost.Gradient(cell.Value), "#6B4A33", 0.5);
-        var (n, smin, smax) = PatternGenerator.Summary(cells, o.ToCore());
-        pm.Info = Loc.F("{0} módulos · escala {1:0.00}–{2:0.00} · área {3}", "{0} modules · scale {1:0.00}–{2:0.00} · area {3}", n, smin, smax, U.FormatArea(region.Area))
-                  + (curved != null ? Loc.T(" · superfície desenrolada", " · unrolled surface") : "")
-                  + (cells.Count > 6000 ? Loc.T(" (pré-visualização parcial)", " (partial preview)") : "");
+        var isVoid = o.Output == PatternOutput.Void;
+        pm.Region(s.Domain);
+        var fill = isVoid ? "#2B2F36" : "#B5652B";
+        foreach (var cell in cells) pm.Polygon(cell.Shape, fill, isVoid ? "#2B2F36" : "#6B4A33", 0.4);
+
+        // 3D: face hospedeira + formas
+        var sc = pm.S3;
+        var color = isVoid ? "#2B2F36" : (Lookup.Material(ctx.Doc, o.Material) is { } m ? MaterialsService.ColorOf(m).Hex : "#B5652B");
+        var thick = isVoid ? HostThickness(ctx.Doc, c) : 0;
+        if (s.Planar is { } f)
+        {
+            if (isVoid) sc.Prism(f, s.Domain.Outer, -thick, thick, "#D9D4CC", 0.35);
+            else sc.Face(f, s.Domain.Outer, "#D9D4CC", 0.45);
+        }
+        else
+        {
+            // superfície curva: malha de linhas
+            var d = s.Domain.Bounds;
+            for (var i = 0; i <= 12; i++)
+            {
+                var u = d.MinX + d.Width * i / 12;
+                Vec3? prev = null;
+                for (var j = 0; j <= 12; j++)
+                {
+                    var p = s.FrameAt(new Vec2(u, d.MinY + d.Height * j / 12)).Origin;
+                    if (prev != null) sc.Line(prev.Value, p, "#8A9099");
+                    prev = p;
+                }
+            }
+        }
+        foreach (var e in Extrusions(o, s, cells, thick))
+            sc.Prism(e.Frame, e.Local, e.Z0, e.Z1 - e.Z0, color);
+
+        var area = cells.Sum(x => x.Shape.Area);
+        var pct = s.Domain.Area > 0 ? area / s.Domain.Area * 100 : 0;
+        pm.Info = Loc.F("{0} formas · {1} ({2:0}% da face) {3}", "{0} shapes · {1} ({2:0}% of the face) {3}",
+            cells.Count, U.FormatArea(area), pct, isVoid ? Loc.T("abertos", "open") : Loc.T("em relevo", "in relief"));
+        if (cells.Count >= o.MaxShapes) pm.Info += Loc.T(" · limite de formas atingido", " · shape limit reached");
         return pm;
     }
 
     internal static void Generate(ToolContext ctx, PatternOptions o, PlanarContext c, string systemId)
     {
         var doc = ctx.Doc;
-        var cells = Cells(ctx, o, c, out _, out var curved);
-        ctx.CheckCount(cells.Count, "módulos", "modules");
-        var output = o.Output;
-        if (output == PatternOutput.Parametric && o.Shape != ModuleShape.Rectangle)
-        {
-            ctx.Report.Info(Loc.T("Módulos não retangulares foram gerados como forma livre (formas exatas).", "Non-rectangular modules were generated as free form (exact shapes)."));
-            output = PatternOutput.FreeForm;
-        }
-
-        if (output == PatternOutput.Perforation)
-        {
-            Perforate(ctx, o, c, cells);
-            return;
-        }
-
-        var sink = new BoxSink(ctx, output switch
-        {
-            PatternOutput.FreeForm => GenOutput.FreeForm,
-            PatternOutput.UserFamily => GenOutput.UserFamily,
-            _ => GenOutput.Parametric,
-        }, BoxKind.Block, systemId, o.UserFamily) { Name = "TT Padrão" };
-        sink.Prepare();
-        var frame = curved == null ? c.GetFrame() : Frame3.World;
+        var s = SurfaceOf(doc, c);
+        var cells = PixyPatternGenerator.Generate(o.ToCore(), s.Domain, o.MaxShapes);
+        if (cells.Count == 0) ToolContext.Fail("Nenhuma forma cabe na face com essas opções. Diminua o tamanho da célula ou a margem.", "No shape fits the face with these options. Reduce cell size or margin.");
+        ctx.CheckCount(cells.Count, "formas", "shapes");
+        var isVoid = o.Output == PatternOutput.Void;
+        var host = doc.GetElement(new ElementId(c.HostId));
+        if (isVoid && (host == null || !InstanceVoidCutUtils.CanBeCutWithVoid(host)))
+            ToolContext.Fail("Este elemento não aceita corte por vazio (ex.: parede-cortina ou família). Use a saída \"Sólidos\" ou escolha uma parede, piso, forro ou telhado.",
+                "This element can't be cut by voids. Use \"Solids\" output or pick a wall, floor, ceiling or roof.");
+        var items = Extrusions(o, s, cells, HostThickness(doc, c));
+        var near = s.FrameAt(s.Domain.Bounds.Center).Origin;
+        var res = PatternFamilyBuilder.Build(ctx, FamilyName(systemId), items, isVoid, near);
         ctx.Modify(ctx.Tool.Name, () =>
         {
             GenSystem.BindParams(doc, ctx.Report);
-            var i = 0;
-            foreach (var cell in cells)
+            var inst = res.Instance;
+            GenSystem.Mark(inst, systemId, ToolId, 0);
+            RevitGeo.Set(inst, o.Pattern.ToString(), SharedParams.Codigo);
+            if (isVoid)
             {
-                var mat = o.MaterialMode switch
-                {
-                    MaterialMode.ByValue => cell.Value >= 0.5 ? o.MaterialB : o.MaterialA,
-                    MaterialMode.Alternate => ((cell.I + cell.J) & 1) == 0 ? o.MaterialA : o.MaterialB,
-                    _ => o.MaterialA,
-                };
-                if (string.IsNullOrWhiteSpace(mat)) mat = null;
-                var f = curved?.FrameAt(cell.Center) ?? frame;
-                var center = curved != null ? Vec2.Zero : cell.Center;
-                if (sink.Output == GenOutput.FreeForm && o.Shape != ModuleShape.Rectangle)
-                {
-                    var local = cell.Outline.Select(p => p - cell.Center + center).ToList();
-                    var pts = local.Select(p => f.ToWorld(p.X, p.Y, o.SurfaceOffset).ToXYZ()).ToList();
-                    try
-                    {
-                        var loop = new CurveLoop();
-                        for (var k = 0; k < pts.Count; k++)
-                            if (pts[k].DistanceTo(pts[(k + 1) % pts.Count]) > Tolerance.ShortCurve)
-                                loop.Append(Line.CreateBound(pts[k], pts[(k + 1) % pts.Count]));
-                        var solid = GeometryCreationUtilities.CreateExtrusionGeometry(new List<CurveLoop> { loop }, f.ZAxis.ToXYZ(), cell.Depth, Shapes.Options(doc, mat));
-                        sink.AddSolid(solid, mat);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Debug("Prisma ignorado: " + ex.Message);
-                    }
-                    i++;
-                    continue;
-                }
-                var box = GenHost.CellBox(f, center, cell.RotationRad, cell.Width, cell.Height, cell.Depth, o.SurfaceOffset);
-                try
-                {
-                    sink.Add(box, mat, i);
-                }
-                catch (Exception ex)
-                {
-                    ctx.Report.Warn(Loc.F("Módulo {0}: {1}", "Module {0}: {1}", i, ex.Message));
-                }
-                i++;
+                InstanceVoidCutUtils.AddInstanceVoidCut(doc, host!, inst);
+                ctx.Report.AddResult(host!.Id.Value);
             }
-            sink.Finish();
-            GenSystem.Register(doc, systemId, "gen.pattern", o, c, Loc.T("Padrão", "Pattern"));
-            ctx.Report.Created(sink.Created.Count);
-            ctx.Report.Count(Loc.T("Módulos", "Modules"), cells.Count);
-            foreach (var id in sink.Created) ctx.Report.AddResult(id.Value);
-        });
-    }
-
-    private static void Perforate(ToolContext ctx, PatternOptions o, PlanarContext c, List<PatternCell> cells)
-    {
-        var doc = ctx.Doc;
-        var host = doc.GetElement(new ElementId(c.HostId));
-        if (host is not (Floor or Ceiling or RoofBase or Wall))
-            throw new ToolException(Loc.T("Perfurações só funcionam em pisos, forros, telhados e paredes.", "Perforations only work on floors, ceilings, roofs and walls."));
-        if (c.Curved) throw new ToolException(Loc.T("Perfurações exigem uma face plana.", "Perforations require a planar face."));
-        var f = c.GetFrame();
-        ctx.Modify(ctx.Tool.Name, () =>
-        {
-            var ok = 0;
-            foreach (var cell in cells)
+            else if (!string.IsNullOrWhiteSpace(o.Material) && Lookup.Material(doc, o.Material) is { } mat)
             {
-                try
-                {
-                    if (host is Wall wall)
-                    {
-                        var b = cell.Outline.Bounds;
-                        var p1 = f.ToWorld(b.MinX, b.MinY, 0).ToXYZ();
-                        var p2 = f.ToWorld(b.MaxX, b.MaxY, 0).ToXYZ();
-                        doc.Create.NewOpening(wall, p1, p2);
-                    }
-                    else
-                    {
-                        var arr = new CurveArray();
-                        var pts = cell.Outline.Select(p => f.ToWorld(p.X, p.Y, 0).ToXYZ()).ToList();
-                        if (cell.Shape == ModuleShape.Circle)
-                        {
-                            var cc = f.ToWorld(cell.Center.X, cell.Center.Y, 0).ToXYZ();
-                            var r = cell.Width / 2;
-                            arr.Append(Arc.Create(cc, r, 0, Math.PI, f.XAxis.ToXYZ(), f.YAxis.ToXYZ()));
-                            arr.Append(Arc.Create(cc, r, Math.PI, 2 * Math.PI, f.XAxis.ToXYZ(), f.YAxis.ToXYZ()));
-                        }
-                        else
-                        {
-                            for (var k = 0; k < pts.Count; k++)
-                                if (pts[k].DistanceTo(pts[(k + 1) % pts.Count]) > Tolerance.ShortCurve)
-                                    arr.Append(Line.CreateBound(pts[k], pts[(k + 1) % pts.Count]));
-                        }
-                        doc.Create.NewOpening(host, arr, true);
-                    }
-                    ok++;
-                }
-                catch (Exception ex)
-                {
-                    Log.Debug("Furo ignorado: " + ex.Message);
-                }
+                inst.Symbol.LookupParameter(PatternFamilyBuilder.MaterialParam)?.Set(mat.Id);
             }
-            ctx.Report.Count(Loc.T("Perfurações", "Perforations"), ok);
-            if (ok < cells.Count)
-                ctx.Report.Warn(Loc.F("{0} perfuração(ões) não puderam ser criadas (sobreposição ou fora do hospedeiro).", "{0} perforation(s) could not be created (overlap or outside the host).", cells.Count - ok));
-            if (host is Wall && o.Shape != ModuleShape.Rectangle)
-                ctx.Report.Info(Loc.T("Em paredes, o Revit só cria aberturas retangulares: formas foram aproximadas pelo retângulo envolvente.", "In walls Revit only creates rectangular openings: shapes were approximated by their bounding rectangle."));
-            ctx.Report.AddResult(host.Id.Value);
+            GenSystem.Register(doc, systemId, ToolId, o, c, Loc.T("Padrão ", "Pattern ") + o.Pattern);
+            ctx.Report.Created();
+            ctx.Report.AddResult(inst.Id.Value);
         });
-    }
-
-    internal static void Regenerate(ToolContext ctx, string optionsJson, string contextJson, string systemId)
-    {
-        var o = Json.Deserialize<PatternOptions>(optionsJson) ?? new PatternOptions();
-        var c = Json.Deserialize<PlanarContext>(contextJson) ?? throw new ToolException("Contexto inválido.");
-        o = ctx.Ask(o, preview: x => Preview(ctx, x, c), okText: Loc.T("Regenerar", "Regenerate"), key: "gen.pattern");
-        ctx.Modify(Loc.T("Remover sistema anterior", "Remove previous system"), () => GenSystem.Delete(ctx.Doc, systemId));
-        Generate(ctx, o, c, systemId);
+        ctx.Report.Count(Loc.T("Formas", "Shapes"), res.Created);
+        if (res.Failed > 0)
+            ctx.Report.Warn(Loc.F("{0} forma(s) não puderam ser criadas (pequenas demais ou degeneradas) e foram ignoradas.", "{0} shape(s) could not be created and were skipped.", res.Failed));
+        ctx.Report.Info(Loc.T("Para alterar o padrão: Geradores ▸ Editar sistema gerado.", "To change the pattern: Generators ▸ Edit generated system."));
     }
 }

@@ -20,6 +20,21 @@ public static class EnumTexts
     public static void RegisterAll()
     {
         EnumLabels.Register(
+            (PixyPattern.Hexagonal, "Hexagonal (colmeia)", "Hexagonal (honeycomb)"),
+            (PixyPattern.Voronoi, "Voronoi (orgânico)", "Voronoi (organic)"),
+            (PixyPattern.StarBurst, "Star Burst (estrelas radiais)", "Star Burst (radial stars)"),
+            (PixyPattern.Circles, "Círculos", "Circles"),
+            (PixyPattern.Diamonds, "Losangos", "Diamonds"),
+            (PixyPattern.Triangles, "Triângulos", "Triangles"),
+            (PixyPattern.Squares, "Quadrados", "Squares"),
+            (PixyPattern.Waves, "Ondas", "Waves"),
+            (PixyPattern.Bricks, "Tijolos (desencontrado)", "Bricks (staggered)"));
+        EnumLabels.Register(
+            (FadeMode.None, "Nenhum", "None"),
+            (FadeMode.Linear, "Linear (de um lado ao outro)", "Linear (side to side)"),
+            (FadeMode.Radial, "Radial (a partir de um centro)", "Radial (from a center)"),
+            (FadeMode.Noise, "Orgânico (ruído)", "Organic (noise)"));
+        EnumLabels.Register(
             (PatternLayout.Linear, "Linear", "Linear"),
             (PatternLayout.Rectangular, "Retangular (quadrangular)", "Rectangular (square)"),
             (PatternLayout.Staggered, "Desencontrado (quincôncio)", "Staggered"),

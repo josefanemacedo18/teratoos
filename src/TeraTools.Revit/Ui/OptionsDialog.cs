@@ -337,9 +337,15 @@ internal sealed class OptionsWindow : Window
     private bool EvaluateVisibleIf(string cond)
     {
         if (string.IsNullOrWhiteSpace(cond)) return true;
-        foreach (var part in cond.Split('&', StringSplitOptions.RemoveEmptyEntries))
-            if (!EvaluateOne(part.Trim())) return false;
-        return true;
+        // "A&B|C" = (A e B) ou C
+        foreach (var alt in cond.Split('|', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var ok = true;
+            foreach (var part in alt.Split('&', StringSplitOptions.RemoveEmptyEntries))
+                if (!EvaluateOne(part.Trim())) { ok = false; break; }
+            if (ok) return true;
+        }
+        return false;
     }
 
     private bool EvaluateOne(string cond)
