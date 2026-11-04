@@ -284,78 +284,6 @@ public sealed class MaterialLibraryCommand : ToolCommand
     }
 }
 
-public enum ApplyMode
-{
-    [Text("Parâmetro de material; se não houver, pintar faces", "Material parameter; if none, paint faces")] Auto,
-    [Text("Somente parâmetro de material", "Material parameter only")] Parameter,
-    [Text("Somente pintar faces", "Paint faces only")] Paint,
-}
-
-public sealed class MatApplyOptions
-{
-    [Opt("Material", "Material", Kind = OptKind.Material, Required = true)]
-    public string Material { get; set; } = "";
-
-    [Opt("Modo", "Mode")]
-    public ApplyMode Mode { get; set; } = ApplyMode.Auto;
-
-    [Opt("Nome do parâmetro de material da instância", "Instance material parameter name", VisibleIf = "Mode!=Paint")]
-    public string ParameterName { get; set; } = "Material";
-}
-
-[Transaction(TransactionMode.Manual)]
-[Tool("mat.apply", Modules.Materials, "Aplicar material", "Apply material", Order = 11,
-    DescPt = "Aplica um material aos elementos selecionados pelo parâmetro de material (TT_Material ou outro) ou pintando as faces.",
-    DescEn = "Applies a material to the selected elements via the material parameter (TT_Material or another) or by painting faces.",
-    Keywords = "aplicar material pintar elementos apply material paint")]
-public sealed class MaterialApplyCommand : ToolCommand
-{
-    public override void Run(ToolContext ctx)
-    {
-        var els = ctx.SelectedOrPick("Selecione os elementos", "Select the elements", e => e.Category != null && e.Category.CategoryType == CategoryType.Model);
-        var o = ctx.Ask<MatApplyOptions>();
-        var doc = ctx.Doc;
-        var mat = Lookup.Material(doc, o.Material) ?? throw new ToolException(Loc.T("Escolha o material.", "Choose the material."));
-        ctx.Modify(ctx.Tool.Name, () =>
-        {
-            foreach (var e in els)
-            {
-                var done = false;
-                if (o.Mode != ApplyMode.Paint)
-                    done = RevitGeo.Set(e, mat.Id, SharedParams.Material, o.ParameterName);
-                if (!done && o.Mode != ApplyMode.Parameter)
-                {
-                    var n = 0;
-                    foreach (var s in RevitGeo.Solids(e))
-                        foreach (Face f in s.Faces)
-                        {
-                            try
-                            {
-                                doc.Paint(e.Id, f, mat.Id);
-                                n++;
-                            }
-                            catch
-                            {
-                                // face não pintável
-                            }
-                        }
-                    done = n > 0;
-                }
-                if (done)
-                {
-                    ctx.Report.Modified();
-                    ctx.Report.AddResult(e.Id.Value);
-                }
-                else
-                {
-                    ctx.Report.Warn(Loc.F("Não foi possível aplicar em \"{0}\" (sem parâmetro de material e faces não pintáveis).",
-                        "Could not apply to \"{0}\" (no material parameter and faces not paintable).", Lookup.ElementLabel(e)), e.Id.Value);
-                }
-            }
-        });
-    }
-}
-
 public sealed class FinishSchemeOptions
 {
     [Opt("Regras: padrão do nome; piso; parede; forro; rodapé", "Rules: name pattern; floor; wall; ceiling; base", Kind = OptKind.MultiLine,
@@ -582,7 +510,7 @@ public sealed class MatSpecsOptions
 
 [Transaction(TransactionMode.Manual)]
 [Tool("mat.specs", Modules.Materials, "Ficha técnica de materiais", "Material specification sheet", Order = 14,
-    DescPt = "Gera o memorial/ficha de materiais: código, nome, categoria, fabricante, referência, acabamento, fornecedor, custo e onde cada um é usado.",
+    DescPt = "Gera a ficha de materiais (código, fabricante, referência, acabamento, fornecedor, custo) com onde e quanto cada um é usado (área, volume, elementos por categoria).",
     DescEn = "Generates the material specification: code, name, category, manufacturer, reference, finish, supplier, cost and where each is used.",
     Keywords = "ficha tecnica memorial descritivo materiais especificacao specification sheet materials")]
 public sealed class MaterialSpecsCommand : ToolCommand
@@ -597,24 +525,39 @@ public sealed class MaterialSpecsCommand : ToolCommand
         var t = new TableData(Loc.T("Ficha técnica de materiais", "Material specification sheet"));
         t.AddColumn(Loc.T("Código", "Code")).AddColumn(Loc.T("Material", "Material")).AddColumn(Loc.T("Categoria", "Category")).AddColumn(Loc.T("Cor", "Color"))
          .AddColumn(Loc.T("Fabricante", "Manufacturer")).AddColumn(Loc.T("Referência", "Reference")).AddColumn(Loc.T("Acabamento", "Finish"))
-         .AddColumn(Loc.T("Fornecedor", "Supplier")).AddColumn(Loc.T("Custo", "Cost"), ColumnKind.Money).AddColumn(Loc.T("Onde é usado", "Where used"));
+         .AddColumn(Loc.T("Fornecedor", "Supplier")).AddColumn(Loc.T("Custo", "Cost"), ColumnKind.Money).AddColumn(Loc.T("Onde é usado", "Where used"))
+         .AddColumn(Loc.T("Área (m²)", "Area (m²)"), ColumnKind.Number).AddColumn(Loc.T("Volume (m³)", "Volume (m³)"), ColumnKind.Number, 3)
+         .AddColumn(Loc.T("Elementos", "Elements"), ColumnKind.Integer);
         foreach (var m in mats)
         {
             var s = lib.Find(m.Name) ?? MatLib.FromMaterial(m);
             var where = usage.TryGetValue(m.Id.Value, out var u) ? string.Join(", ", u.ByCategory.Keys.OrderBy(k => k)) : "";
             t.AddRowWithIds(u?.ByCategory.Values.SelectMany(v => v.Ids).Take(500) ?? Enumerable.Empty<long>(),
                 string.IsNullOrWhiteSpace(s.Code) ? RevitGeo.Text(m, BuiltInParameter.ALL_MODEL_MARK) : s.Code, m.Name, s.Category, MaterialsService.ColorOf(m).Hex,
-                s.Manufacturer, s.Reference, s.Finish ?? s.Description, s.Supplier, s.UnitCost, where);
+                s.Manufacturer, s.Reference, s.Finish ?? s.Description, s.Supplier, s.UnitCost, where,
+                u == null ? 0 : U.SqFtToM2(u.Area), u == null ? 0 : U.CuFtToM3(u.Volume), u?.Count ?? 0);
         }
         ctx.Report.Tables.Add(t);
+        var byCat = new TableData(Loc.T("Uso de materiais por categoria", "Material usage by category"));
+        byCat.AddColumn(Loc.T("Material", "Material")).AddColumn(Loc.T("Categoria", "Category"))
+            .AddColumn(Loc.T("Área (m²)", "Area (m²)"), ColumnKind.Number).AddColumn(Loc.T("Volume (m³)", "Volume (m³)"), ColumnKind.Number, 3)
+            .AddColumn(Loc.T("Elementos", "Elements"), ColumnKind.Integer);
+        foreach (var m in mats)
+        {
+            if (!usage.TryGetValue(m.Id.Value, out var u)) continue;
+            foreach (var (cat, v) in u.ByCategory.OrderBy(k => k.Key))
+                byCat.AddRowWithIds(v.Ids, m.Name, cat, U.SqFtToM2(v.Area), U.CuFtToM3(v.Volume), v.Ids.Count);
+        }
+        byCat.AddTotalsRow(Loc.T("Total", "Total"), 2, 3, 4);
+        ctx.Report.Tables.Add(byCat);
         if (o.Save)
         {
             try
             {
                 var title = TextUtil.SafeFileName(string.IsNullOrWhiteSpace(doc.Title) ? "projeto" : doc.Title);
                 var html = Path.Combine(Paths.Exports, $"{title} - ficha de materiais.html");
-                HtmlReportWriter.Write(html, Loc.T("Ficha técnica de materiais", "Material specification sheet"), doc.Title, null, new[] { t });
-                XlsxWriter.Write(Path.ChangeExtension(html, ".xlsx"), t);
+                HtmlReportWriter.Write(html, Loc.T("Ficha técnica de materiais", "Material specification sheet"), doc.Title, null, new[] { t, byCat });
+                XlsxWriter.Write(Path.ChangeExtension(html, ".xlsx"), t, byCat);
                 ctx.Report.Success(Loc.F("Ficha salva: {0}", "Sheet saved: {0}", html));
                 MatLib.OpenFolder(html);
             }
@@ -627,44 +570,3 @@ public sealed class MaterialSpecsCommand : ToolCommand
     }
 }
 
-public sealed class MatReportOptions
-{
-    [Opt("Incluir faces pintadas", "Include painted faces")]
-    public bool Painted { get; set; } = true;
-
-    [Opt("Detalhar por categoria", "Break down by category")]
-    public bool ByCategory { get; set; } = true;
-}
-
-[Transaction(TransactionMode.Manual)]
-[Tool("mat.report", Modules.Materials, "Relatório de uso de materiais", "Material usage report", Order = 15,
-    DescPt = "Mostra área, volume e quantidade de elementos de cada material (por categoria), com seleção dos elementos — sem alterar o modelo.",
-    DescEn = "Shows area, volume and element count of each material (by category), with element selection — without changing the model.",
-    Keywords = "relatorio uso materiais area volume quantitativo material usage report takeoff")]
-public sealed class MaterialReportCommand : ToolCommand
-{
-    public override void Run(ToolContext ctx)
-    {
-        var o = ctx.Ask<MatReportOptions>();
-        var doc = ctx.Doc;
-        var usage = MaterialUsage.Scan(doc, o.Painted);
-        var t = new TableData(Loc.T("Uso de materiais", "Material usage"));
-        t.AddColumn(Loc.T("Material", "Material"));
-        if (o.ByCategory) t.AddColumn(Loc.T("Categoria", "Category"));
-        t.AddColumn(Loc.T("Área (m²)", "Area (m²)"), ColumnKind.Number).AddColumn(Loc.T("Volume (m³)", "Volume (m³)"), ColumnKind.Number, 3)
-         .AddColumn(Loc.T("Elementos", "Elements"), ColumnKind.Integer);
-        foreach (var (id, u) in usage.OrderBy(kv => (doc.GetElement(new ElementId(kv.Key)) as Material)?.Name))
-        {
-            var name = (doc.GetElement(new ElementId(id)) as Material)?.Name ?? $"#{id}";
-            if (o.ByCategory)
-                foreach (var (cat, v) in u.ByCategory.OrderBy(k => k.Key))
-                    t.AddRowWithIds(v.Ids, name, cat, U.SqFtToM2(v.Area), U.CuFtToM3(v.Volume), v.Ids.Count);
-            else
-                t.AddRowWithIds(u.ByCategory.Values.SelectMany(v => v.Ids), name, U.SqFtToM2(u.Area), U.CuFtToM3(u.Volume), u.Count);
-        }
-        var c0 = o.ByCategory ? 2 : 1;
-        t.AddTotalsRow(Loc.T("Total", "Total"), c0, c0 + 1, c0 + 2);
-        ctx.Report.Tables.Add(t);
-        ctx.Report.ForceShow = true;
-    }
-}

@@ -26,67 +26,6 @@ internal static class RoomUtil
     }
 }
 
-public sealed class RoomCreateOptions
-{
-    [Opt("Nível", "Level", Kind = OptKind.Level, Tip = "Vazio = nível da vista ativa.|Empty = active view level.")]
-    public string Level { get; set; } = "";
-
-    [Opt("Fase", "Phase", Kind = OptKind.Phase, Tip = "Vazio = fase da vista ativa.|Empty = active view phase.")]
-    public string Phase { get; set; } = "";
-
-    [Opt("Nome padrão", "Default name")]
-    public string Name { get; set; } = "Ambiente";
-
-    [Opt("Numeração — prefixo", "Numbering — prefix")]
-    public string Prefix { get; set; } = "";
-
-    [Opt("Numeração — início", "Numbering — start", Min = 0)]
-    public int Start { get; set; } = 1;
-
-    [Opt("Numeração — dígitos", "Numbering — digits", Min = 1, Max = 6)]
-    public int Digits { get; set; } = 2;
-}
-
-[Transaction(TransactionMode.Manual)]
-[Tool("room.create", Modules.Interiors, "Criar ambientes automaticamente", "Create rooms automatically", Order = 10, Group = "Ambientes|Rooms",
-    DescPt = "Identifica todos os espaços fechados do nível e cria os ambientes com nome e numeração em sequência.",
-    DescEn = "Finds all closed spaces on the level and creates rooms with sequential names and numbers.",
-    Keywords = "criar ambientes identificar automatico rooms create auto")]
-public sealed class RoomCreateCommand : ToolCommand
-{
-    public override void Run(ToolContext ctx)
-    {
-        var o = ctx.Ask<RoomCreateOptions>();
-        var level = Lookup.Level(ctx.Doc, o.Level) ?? RevitGeo.ViewLevel(ctx.ActiveView) ?? throw new ToolException(Loc.T("Nenhum nível.", "No level."));
-        var phaseId = ctx.ActiveView.get_Parameter(BuiltInParameter.VIEW_PHASE)?.AsElementId();
-        var phase = Lookup.Phase(ctx.Doc, o.Phase) ?? (phaseId != null ? ctx.Doc.GetElement(phaseId) as Phase : null) ?? ctx.Doc.Phases.Cast<Phase>().Last();
-        var seq = new NumberingSequence { Prefix = o.Prefix, Start = o.Start, Digits = o.Digits };
-        ctx.Modify(ctx.Tool.Name, () =>
-        {
-            var ids = ctx.Doc.Create.NewRooms2(level, phase);
-            ctx.Doc.Regenerate();
-            var rooms = ids.Select(id => ctx.Doc.GetElement(id)).OfType<Room>()
-                .Where(r => r.Location is LocationPoint)
-                .OrderByDescending(r => Math.Round(((LocationPoint)r.Location).Point.Y, 1))
-                .ThenBy(r => ((LocationPoint)r.Location).Point.X).ToList();
-            var existing = RevitGeo.Rooms(ctx.Doc).Select(r => r.Number).ToHashSet();
-            var n = 0;
-            foreach (var r in rooms)
-            {
-                string num;
-                do num = seq.Format(n++);
-                while (existing.Contains(num) && n < 100000);
-                existing.Add(num);
-                r.Number = num;
-                r.Name = o.Name;
-                ctx.Report.AddResult(r.Id.Value);
-            }
-            ctx.Report.Created(rooms.Count);
-            if (rooms.Count == 0) ctx.Report.Info(Loc.T("Nenhum espaço fechado novo encontrado neste nível.", "No new closed space found on this level."));
-        });
-    }
-}
-
 public enum RoomOrder
 {
     [Text("Na ordem dos cliques", "In click order")] Click,
@@ -392,33 +331,6 @@ public sealed class RoomDataCommand : ToolCommand
                 break;
             }
         }
-    }
-}
-
-[Transaction(TransactionMode.Manual)]
-[Tool("room.schedule", Modules.Interiors, "Tabela de ambientes", "Room schedule", Order = 14, Group = "Ambientes|Rooms",
-    DescPt = "Cria a tabela de ambientes com número, nome, nível, área, perímetro, departamento e acabamentos.",
-    DescEn = "Creates the room schedule with number, name, level, area, perimeter, department and finishes.",
-    Keywords = "tabela ambientes area schedule rooms")]
-public sealed class RoomScheduleCommand : ToolCommand
-{
-    public override void Run(ToolContext ctx)
-    {
-        ctx.Modify(ctx.Tool.Name, () =>
-        {
-            var vs = Schedules.Create(ctx.Doc, BuiltInCategory.OST_Rooms, Loc.T("TT Tabela de ambientes", "TT Room schedule"),
-                new[]
-                {
-                    new Schedules.Spec("BIP:ROOM_NUMBER"), new Schedules.Spec("BIP:ROOM_NAME"), new Schedules.Spec("BIP:ROOM_LEVEL_ID"),
-                    new Schedules.Spec("BIP:ROOM_AREA", Totals: true), new Schedules.Spec("BIP:ROOM_PERIMETER"),
-                    new Schedules.Spec("BIP:ROOM_DEPARTMENT"), new Schedules.Spec("BIP:ROOM_FINISH_FLOOR"), new Schedules.Spec("BIP:ROOM_FINISH_WALL"),
-                    new Schedules.Spec("BIP:ROOM_FINISH_CEILING"), new Schedules.Spec("BIP:ROOM_FINISH_BASE"),
-                }, null, new[] { "BIP:ROOM_LEVEL_ID", "BIP:ROOM_NUMBER" }, report: ctx.Report);
-            ctx.Report.Created();
-            ctx.Report.AddResult(vs.Id.Value);
-        });
-        ctx.Report.ForceShow = true;
-        ctx.Report.Success(Loc.T("Tabela criada no navegador de projeto (Tabelas/Quantidades).", "Schedule created in the Project Browser (Schedules/Quantities)."));
     }
 }
 

@@ -1,23 +1,20 @@
 # Téra Tools — referência das ferramentas
 
-Lista gerada a partir do código-fonte: **124 ferramentas** em 14 módulos. No Revit, cada ferramenta também tem uma página de ajuda (botão **Ajuda** ou tecla **F1** no diálogo, ou no painel Téra).
+Lista gerada a partir do código-fonte: **79 ferramentas** em 11 módulos. No Revit, cada ferramenta também tem uma página de ajuda (botão **Ajuda** ou tecla **F1** no diálogo, ou no painel Téra).
 
 ## Índice
 
-- [Geral](#geral) — Painel, busca, configurações e ajuda (6)
-- [Modelagem](#modelagem) — Alinhar, distribuir, matrizes e transformações (13)
-- [Seleção](#seleção) — Seleção, filtros e visibilidade (6)
-- [Análise](#análise) — Colisões e medições (3)
-- [Geradores](#geradores) — Padrões, imagem, brises, quadros espaciais, cinético e temas (11)
-- [Geometria](#geometria) — Booleanas, partes, aberturas e sólidos (12)
+- [Geral](#geral) — Painel, busca, configurações e ajuda (4)
+- [Modelagem](#modelagem) — Distribuir, girar no lugar, seleção avançada e conversão de CAD (5)
+- [Geradores](#geradores) — Padrões, imagem, brises, quadros espaciais, cinético e temas (10)
 - [Pisos](#pisos) — Pisos, paginação, rodapés e revestimentos (8)
-- [Interiores](#interiores) — Ambientes, mobiliário, ergonomia, iluminação, forros e paredes (27)
+- [Interiores](#interiores) — Ambientes, mobiliário, ergonomia, iluminação, forros e paredes (23)
 - [Marcenaria](#marcenaria) — Módulos planejados, detalhamento e plano de corte (7)
-- [Materiais](#materiais) — Biblioteca, aplicação e especificação de materiais (6)
-- [Documentação](#documentação) — Vistas, pranchas, anotações e exportação (15)
+- [Materiais](#materiais) — Biblioteca, aplicação e especificação de materiais (4)
+- [Documentação](#documentação) — Vistas, pranchas, anotações e exportação (9)
 - [Quantitativos](#quantitativos) — Tabelas, quantitativos e orçamento (4)
 - [Qualidade](#qualidade) — Verificações e regras personalizadas (2)
-- [Projeto](#projeto) — Configurações, presets, bibliotecas e lote (4)
+- [Projeto](#projeto) — Configurações, presets, bibliotecas e lote (3)
 
 ## Geral
 
@@ -50,113 +47,14 @@ Idioma, painel, limites de desempenho, pastas e exportação.
 
 Abre a documentação integrada com todas as ferramentas.
 
-### Histórico de operações
-`general.history`
-
-Lista as operações executadas pelo plugin, com status, duração e resumo.
-
 ### Diagnóstico
 `general.about`
 
 Versão, pastas, templates de família encontrados e informações para suporte.
 
-### Abrir pasta de dados
-`general.logs`
-
-Abre a pasta com configurações, presets, logs e exportações do plugin.
-
 ## Modelagem
 
-_Alinhar, distribuir, matrizes e transformações_
-
-### Alinhar
-`modeling.align`
-
-Alinha elementos por bordas, centros ou elevação, em relação a um elemento, ponto ou ao conjunto.
-
-> Selecione os elementos (ou execute e selecione). Escolha a direção (horizontal/vertical da vista ou altura), a borda (início, centro, fim) e a referência.
->
-> • Em plantas, horizontal = X e vertical = Y da vista.
->
-> • Em cortes e elevações, a vertical é a altura.
->
-> • Elementos fixados (pinned) ou travados são ignorados e listados no relatório.
-
-### Distribuir
-`modeling.distribute`
-
-Distribui elementos uniformemente (centros ou vãos iguais) ou com espaçamento fixo.
-
-> Os elementos são ordenados pela posição na direção escolhida. Nos modos 'iguais', o primeiro e o último ficam no lugar; nos modos 'fixos', o primeiro fica no lugar e os demais são reposicionados.
-
-### Matriz linear/retangular
-`modeling.arraylinear` · Matrizes
-
-Cria cópias em linha ou em grade, por espaçamento ou distribuídas entre dois pontos.
-
-> As cópias são elementos independentes (não é uma matriz associativa do Revit). Use 'Agrupar o resultado' para mover tudo junto.
-
-### Matriz radial
-`modeling.arrayradial` · Matrizes
-
-Cria cópias em torno de um centro escolhido, com ângulo total configurável.
-
-> Com 360°, as cópias se distribuem por toda a volta; com outros ângulos, a última cópia cai exatamente no ângulo final.
-
-### Copiar com deslocamento
-`modeling.copy` · Transformar
-
-Copia (ou move) elementos com deslocamento numérico e rotação, quantas vezes quiser.
-
-### Rotacionar
-`modeling.rotate` · Transformar
-
-Gira elementos em torno do próprio centro, do centro do conjunto ou de um ponto, com variação aleatória opcional.
-
-### Espelhar
-`modeling.mirror` · Transformar
-
-Espelha elementos por um eixo do conjunto, por dois pontos ou por uma linha/grade/plano.
-
-### Posição e elevação
-`modeling.elevation` · Transformar
-
-Ajusta a elevação de famílias, pisos, forros e paredes (por parâmetro) ou move outros elementos em Z.
-
-> Usa o parâmetro nativo de deslocamento do elemento quando existe (elevação a partir do nível, deslocamento do hospedeiro, altura acima do nível, deslocamento da base). Caso contrário, move o elemento verticalmente.
-
-### Redimensionar
-`modeling.resize` · Transformar
-
-Altera dimensões de elementos compatíveis via parâmetros (definir, somar ou escalar).
-
-> Funciona com qualquer família que tenha parâmetros de comprimento (ex.: Largura, Altura, Comprimento). Elementos sem o parâmetro são listados no relatório.
-
-### Agrupar
-`modeling.group` · Grupos
-
-Cria um grupo de modelo com os elementos selecionados, com nome opcional.
-
-### Desagrupar
-`modeling.ungroup` · Grupos
-
-Desfaz todos os grupos selecionados (os membros ficam selecionados).
-
-### Substituir família/tipo
-`modeling.replacetype`
-
-Troca o tipo (ou a família) dos elementos selecionados, mantendo posição e parâmetros de instância compatíveis.
-
-> Selecione elementos de uma mesma categoria. A lista mostra todos os tipos compatíveis carregados no projeto (inclusive de outras famílias da mesma categoria). Valores de parâmetros de instância com o mesmo nome são restaurados após a troca.
-
-### Pontos e linhas auxiliares
-`modeling.refline`
-
-Cria linhas de modelo/detalhe ou planos de referência por pontos, centros ou eixos dos elementos.
-
-## Seleção
-
-_Seleção, filtros e visibilidade_
+_Distribuir, girar no lugar, seleção avançada e conversão de CAD_
 
 ### Filtro avançado
 `selection.filter`
@@ -171,51 +69,29 @@ Seleciona, isola ou oculta por categoria, família, tipo, material, nível, ambi
 >
 > Comparações 'maior/menor que' entendem as unidades do projeto (ex.: 2,10 m).
 
-### Selecionar semelhantes
-`selection.similar`
+### Distribuir
+`modeling.distribute`
 
-Seleciona todos os elementos do mesmo tipo dos selecionados (na vista ou no projeto).
+Distribui elementos uniformemente (centros ou vãos iguais) ou com espaçamento fixo.
 
-### Isolar
-`selection.isolate` · Visibilidade
-
-Isola temporariamente os elementos selecionados na vista ativa.
-
-### Ocultar
-`selection.hide` · Visibilidade
-
-Oculta os elementos (ou categorias) selecionados, temporária ou permanentemente.
-
-### Revelar ocultos
-`selection.reveal` · Visibilidade
-
-Desativa isolamento/ocultação temporária e reexibe elementos ocultos na vista ativa.
+> Os elementos são ordenados pela posição na direção escolhida. Nos modos 'iguais', o primeiro e o último ficam no lugar; nos modos 'fixos', o primeiro fica no lugar e os demais são reposicionados.
 
 ### Elementos do ambiente
 `selection.byroom`
 
 Seleciona (ou isola) os elementos que estão dentro dos ambientes escolhidos.
 
-## Análise
+### Rotacionar
+`modeling.rotate` · Transformar
 
-_Colisões e medições_
+Gira elementos em torno do próprio centro, do centro do conjunto ou de um ponto, com variação aleatória opcional.
 
-### Verificar colisões
-`analysis.clash`
+### Converter linhas/CAD em elementos
+`geo.convert`
 
-Encontra interferências geométricas entre os elementos selecionados ou contra categorias escolhidas.
+Transforma linhas de modelo/detalhe ou de um DWG em paredes, pisos, forros, separadores de ambiente ou linhas de modelo.
 
-> Usa a geometria real dos elementos (não só as caixas). No relatório, clique duas vezes em uma colisão para selecionar o par no modelo.
-
-### Medir seleção
-`analysis.measure`
-
-Soma comprimentos, áreas, perímetros e volumes dos elementos selecionados.
-
-### Medir distância
-`analysis.distance`
-
-Mede a distância entre dois pontos (total, em planta e em altura).
+> Selecione linhas ou um CAD importado/vinculado. Filtre pela camada do DWG (ex.: "PAREDE"). Para pisos e forros, as linhas são encadeadas em contornos fechados automaticamente (folga de até 3 mm).
 
 ## Geradores
 
@@ -286,11 +162,6 @@ Conjuntos de painéis móveis com eixos, ângulos de abertura, comportamentos (o
 >
 > Limitação: a movimentação é paramétrica (estados). Animação contínua em tempo real e simulação física não fazem parte do Revit — use a exportação OBJ para animar em outro programa.
 
-### Atualizar estado cinético
-`gen.kineticstate`
-
-Muda a abertura (ou o comportamento) de um conjunto cinético já gerado.
-
 ### Paleta de cores
 `gen.palette` · Temas
 
@@ -319,84 +190,6 @@ Reabre as opções de qualquer padrão, mosaico, brise, quadro espacial ou ciné
 `gen.select`
 
 Seleciona todos os elementos do sistema gerado ao qual o elemento escolhido pertence.
-
-## Geometria
-
-_Booleanas, partes, aberturas e sólidos_
-
-### Unir geometria
-`geo.join` · Unir e recortar
-
-Une a geometria de todos os pares de elementos selecionados que se tocam (paredes, pisos, vigas, massas...).
-
-### Desunir geometria
-`geo.unjoin` · Unir e recortar
-
-Desfaz as uniões de geometria entre os elementos selecionados (ou com qualquer elemento, se só um for selecionado).
-
-### Recortar com sólido/vazio
-`geo.cut` · Unir e recortar
-
-Recorta elementos com um sólido ou instância de vazio (corte nativo e editável do Revit).
-
-> Primeiro selecione os elementos a recortar; depois escolha o elemento que recorta. Funciona com famílias de vazio ("Cortar com vazios ao carregar") e com sólidos que permitem corte (massas, modelos genéricos). Combinações não suportadas pelo Revit são listadas no relatório.
-
-### Booleanas (forma livre)
-`geo.boolean`
-
-União, subtração ou interseção dos sólidos dos elementos, gerando uma forma livre (DirectShape).
-
-> Limitação: o resultado é uma forma livre (geometria de apresentação com categoria, material e parâmetros), não uma família paramétrica. Operações booleanas dependem da representação geométrica: elementos sem sólidos ou com geometria inválida são ignorados e listados.
-
-### Dividir em partes
-`geo.parts`
-
-Cria partes do Revit e as divide em grade, com junta — base para paginação e fabricação.
-
-> Partes são elementos nativos: cada peça pode ter material próprio, ser excluída, ter faces deslocadas e entrar em tabelas de partes. Funciona com pisos, forros, telhados e paredes.
-
-### Aberturas e vazios
-`geo.opening`
-
-Cria aberturas retangulares ou circulares em pisos, forros e telhados, e aberturas retangulares em paredes.
-
-> Escolha o hospedeiro e clique nos centros das aberturas (Esc para terminar). Em paredes, a abertura é posicionada pelo ponto clicado e pelo peitoril.
-
-### Sólido por perfil
-`geo.solid`
-
-Cria sólidos por extrusão, revolução ou varredura a partir de linhas de modelo fechadas.
-
-> Selecione as linhas do perfil (devem formar um ou mais contornos fechados e planos). Para revolução, depois escolha a linha do eixo; para varredura, escolha as linhas do caminho. O resultado é uma forma livre com categoria e material.
-
-### Aplicar espessura em face
-`geo.thicken`
-
-Cria uma placa com espessura a partir de uma face plana (revestimentos, tampos, painéis).
-
-### Converter linhas/CAD em elementos
-`geo.convert`
-
-Transforma linhas de modelo/detalhe ou de um DWG em paredes, pisos, forros, separadores de ambiente ou linhas de modelo.
-
-> Selecione linhas ou um CAD importado/vinculado. Filtre pela camada do DWG (ex.: "PAREDE"). Para pisos e forros, as linhas são encadeadas em contornos fechados automaticamente (folga de até 3 mm).
-
-### Volume simplificado
-`geo.simplify`
-
-Gera volumes leves (caixa ou contorno convexo) que representam elementos complexos — útil para estudos e desempenho.
-
-### Deslocar face de parte
-`geo.offsetface`
-
-Desloca faces de partes (recurso nativo para ajustar espessuras de peças de revestimento).
-
-> Limitação: o Revit só permite deslocar faces de PARTES. Crie partes primeiro (Dividir em partes ou Paginação).
-
-### Verificar geometria
-`geo.validate`
-
-Procura elementos sem geometria, com volume nulo, linhas curtas demais, duplicados no mesmo lugar e avisos do Revit.
 
 ## Pisos
 
@@ -458,11 +251,6 @@ Cria a planta de paginação (partes visíveis, recortes destacados) e a tabela 
 
 _Ambientes, mobiliário, ergonomia, iluminação, forros e paredes_
 
-### Criar ambientes automaticamente
-`room.create` · Ambientes
-
-Identifica todos os espaços fechados do nível e cria os ambientes com nome e numeração em sequência.
-
 ### Numerar ambientes
 `room.number` · Ambientes
 
@@ -480,11 +268,6 @@ Exporta os ambientes para planilha, importa as alterações de volta (por Id) ou
 
 > Fluxo planilha: 1) Exportar CSV. 2) Edite no Excel (não altere a coluna Id). 3) Importar: cada coluna com nome de parâmetro editável é atualizada.
 
-### Tabela de ambientes
-`room.schedule` · Ambientes
-
-Cria a tabela de ambientes com número, nome, nível, área, perímetro, departamento e acabamentos.
-
 ### Verificar ambientes
 `room.check` · Ambientes
 
@@ -499,13 +282,6 @@ Cria para cada ambiente uma planta recortada e as quatro elevações internas, j
 `views.organize` · Ambientes
 
 Classifica vistas em grupos (layout, acabamentos, iluminação, forro...) por regras de nome, para organizar o navegador de projeto.
-
-### Inserir mobiliário
-`furn.place` · Mobiliário
-
-Insere móveis por cliques ou no centro dos ambientes, já girados de costas para a parede e, se quiser, encostados nela.
-
-> Famílias hospedadas em face (ex.: luminária de forro) usam a inserção nativa do Revit. As demais são posicionadas pelo plugin, num único Desfazer.
 
 ### Distribuir ao longo de parede/linha
 `furn.distribute` · Mobiliário
@@ -578,11 +354,6 @@ Cria o forro de cada ambiente pelo contorno de acabamento, na altura escolhida e
 Cria rebaixo perimetral (faixa) e forro central em alturas diferentes, com fechamento vertical (sanca fechada ou aberta com fenda de luz) e tabica.
 
 > O fechamento vertical é feito com paredes finas (sem delimitar ambientes), contornando o forro central. Tudo fica num único Desfazer e editável como elementos nativos do Revit.
-
-### Planta de forro por nível
-`ceil.rcp` · Forros
-
-Cria plantas de forro (RCP) para os níveis escolhidos, com modelo de vista, escala e etiquetas de altura dos forros.
 
 ### Aberturas no forro
 `ceil.opening` · Forros
@@ -677,11 +448,6 @@ Biblioteca pessoal de materiais (cor, código, fabricante, referência, acabamen
 
 > A biblioteca fica em %AppData%\TeraTools\bibliotecas\materiais.json. Para editar em massa: exporte para CSV, edite no Excel (mantenha os cabeçalhos) e importe de volta. Uma pasta de biblioteca compartilhada pode ser definida nas configurações.
 
-### Aplicar material
-`mat.apply`
-
-Aplica um material aos elementos selecionados pelo parâmetro de material (TT_Material ou outro) ou pintando as faces.
-
 ### Acabamentos por ambiente
 `mat.byroom`
 
@@ -695,12 +461,7 @@ Troca um material por outro em todo o projeto: parâmetros de tipos e instância
 ### Ficha técnica de materiais
 `mat.specs`
 
-Gera o memorial/ficha de materiais: código, nome, categoria, fabricante, referência, acabamento, fornecedor, custo e onde cada um é usado.
-
-### Relatório de uso de materiais
-`mat.report`
-
-Mostra área, volume e quantidade de elementos de cada material (por categoria), com seleção dos elementos — sem alterar o modelo.
+Gera a ficha de materiais (código, fabricante, referência, acabamento, fornecedor, custo) com onde e quanto cada um é usado (área, volume, elementos por categoria).
 
 ## Documentação
 
@@ -721,11 +482,6 @@ Cria cortes longitudinal e transversal passando pelo centro de cada ambiente, al
 
 Cria vistas 3D isométricas por ambiente ou por nível, com caixa de corte na altura escolhida — ideais para apresentação de interiores.
 
-### Configurar vistas em lote
-`doc.viewsettings` · Vistas
-
-Aplica escala, nível de detalhe, estilo visual, recorte e modelo de vista a várias vistas de uma vez.
-
 ### Criar pranchas em lote
 `doc.sheets` · Pranchas
 
@@ -741,39 +497,12 @@ Coloca as vistas escolhidas nas pranchas sem sobreposição, usando o tamanho re
 
 Renumera pranchas em sequência (na ordem escolhida) ou os números de detalhe das vistas da prancha ativa, da esquerda para a direita e de cima para baixo.
 
-### Dados do carimbo
-`doc.titleblock` · Pranchas
-
-Preenche os dados do projeto (cliente, endereço, número, status) e das pranchas (desenhado, verificado, aprovado, data) e troca o carimbo em lote.
-
-> Campos vazios não alteram o valor atual. Os dados do projeto aparecem em todos os carimbos que usam as Informações do projeto.
-
-### Índice de pranchas
-`doc.sheetindex` · Pranchas
-
-Cria a lista de pranchas (número, nome, revisão, data, responsáveis) como tabela do Revit e planilha, e a coloca numa prancha.
-
-### Exportar PDF
-`doc.pdf` · Exportação
-
-Exporta pranchas e vistas para PDF (um arquivo por prancha com nome padronizado, ou um único PDF), em cores, cinza ou preto e branco.
-
-### Exportar DWG
-`doc.dwg` · Exportação
-
-Exporta pranchas e vistas para DWG com nomes padronizados, usando uma configuração de exportação do projeto.
-
 ### Cotas automáticas
 `doc.dims` · Anotação
 
 Cota automaticamente a largura e o comprimento internos dos ambientes ou as paredes com seus vãos (portas e janelas), na planta ativa.
 
 > As cotas são associativas (referenciam as faces das paredes e os eixos das aberturas): se a parede mudar, a cota acompanha. Paredes curvas são ignoradas.
-
-### Etiquetar tudo na vista
-`doc.tags` · Anotação
-
-Coloca etiquetas em todos os elementos das categorias escolhidas visíveis na vista (ambientes, portas, janelas, móveis, luminárias...), sem duplicar.
 
 ### Legenda de acabamentos e cores
 `doc.legend` · Anotação
@@ -834,11 +563,6 @@ Edita as regras da verificação de qualidade numa planilha: obrigatório, faixa
 ## Projeto
 
 _Configurações, presets, bibliotecas e lote_
-
-### Configurações do projeto
-`proj.settings`
-
-Dados do projeto guardados no próprio arquivo (código, cliente, responsável, etapa, pasta de exportação), usados por relatórios, nomes e carimbos.
 
 ### Presets e bibliotecas
 `proj.presets`

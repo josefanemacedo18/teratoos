@@ -255,69 +255,6 @@ public sealed class CoveCommand : ToolCommand
     }
 }
 
-public sealed class RcpOptions
-{
-    [Opt("Modelo de vista", "View template", Kind = OptKind.ViewTemplate, Filter = "CeilingPlan")]
-    public string Template { get; set; } = "";
-
-    [Opt("Modelo do nome", "Name template", Tip = "Marcador: {Nivel}.|Token: {Nivel}.")]
-    public string NameTemplate { get; set; } = "Forro - {Nivel}";
-
-    [Opt("Escala (1:n)", "Scale (1:n)", Min = 1, Max = 5000)]
-    public int Scale { get; set; } = 50;
-
-    [Opt("Etiquetar forros (altura)", "Tag ceilings (height)", Tip = "Requer uma etiqueta de forro carregada no projeto.|Requires a ceiling tag loaded in the project.")]
-    public bool Tag { get; set; } = true;
-}
-
-[Transaction(TransactionMode.Manual)]
-[Tool("ceil.rcp", Modules.Interiors, "Planta de forro por nível", "Ceiling plan per level", Order = 52, Group = "Forros|Ceilings",
-    DescPt = "Cria plantas de forro (RCP) para os níveis escolhidos, com modelo de vista, escala e etiquetas de altura dos forros.",
-    DescEn = "Creates reflected ceiling plans for the chosen levels, with view template, scale and ceiling height tags.",
-    Keywords = "planta de forro rcp refletida teto reflected ceiling plan")]
-public sealed class RcpCommand : ToolCommand
-{
-    public override void Run(ToolContext ctx)
-    {
-        var doc = ctx.Doc;
-        var levels = Pick.Many(Lookup.Collect<Level>(doc).OrderBy(l => l.Elevation), l => l.Name, ctx.Tool.Name, Loc.T("Para quais níveis?", "For which levels?"), ctx.Owner);
-        if (levels.Count == 0) ctx.Cancel();
-        var o = ctx.Ask<RcpOptions>();
-        var vft = Lookup.ViewFamilyType(doc, ViewFamily.CeilingPlan) ?? throw new ToolException(Loc.T("Tipo de vista de forro não encontrado.", "Ceiling plan view type not found."));
-        ctx.Modify(ctx.Tool.Name, () =>
-        {
-            var tagFailed = false;
-            foreach (var level in levels)
-            {
-                var v = ViewPlan.Create(doc, vft.Id, level.Id);
-                v.Name = Lookup.UniqueViewName(doc, Core.Text.NameTemplate.Apply(o.NameTemplate, new Dictionary<string, object?> { ["Nivel"] = level.Name }));
-                if (Lookup.View(doc, o.Template) is { IsTemplate: true } t) v.ViewTemplateId = t.Id;
-                else v.Scale = o.Scale;
-                ctx.Report.Created();
-                ctx.Report.AddResult(v.Id.Value);
-                if (!o.Tag || tagFailed) continue;
-                foreach (var c in new FilteredElementCollector(doc).OfClass(typeof(Ceiling)).Cast<Ceiling>().Where(c => c.LevelId == level.Id).ToList())
-                {
-                    var reg = RevitGeo.SketchRegion(doc, c.SketchId);
-                    var p = reg != null ? reg.Outer.Centroid : RevitGeo.BoxCenter(c)?.ToVec2();
-                    if (p == null) continue;
-                    try
-                    {
-                        IndependentTag.Create(doc, v.Id, new Reference(c), false, TagMode.TM_ADDBY_CATEGORY, TagOrientation.Horizontal, p.Value.ToXYZ(level.Elevation));
-                        ctx.Report.Count(Loc.T("Etiquetas", "Tags"));
-                    }
-                    catch (Exception ex)
-                    {
-                        tagFailed = true;
-                        ctx.Report.Info(Loc.T("Etiquetas de forro não criadas (carregue uma família de etiqueta de forro): ", "Ceiling tags not created (load a ceiling tag family): ") + ex.Message);
-                        break;
-                    }
-                }
-            }
-        });
-    }
-}
-
 public enum OpeningShape
 {
     [Text("Retângulo do objeto", "Object rectangle")] Rect,

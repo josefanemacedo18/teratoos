@@ -150,36 +150,6 @@ public sealed class HelpCommand : ToolCommand
 }
 
 [Transaction(TransactionMode.Manual)]
-[Tool("general.history", Modules.General, "Histórico de operações", "Operation history", Order = 30, RequiresDocument = false,
-    DescPt = "Lista as operações executadas pelo plugin, com status, duração e resumo.",
-    DescEn = "Lists operations run by the plugin, with status, duration and summary.",
-    Keywords = "historico log registro operacoes history")]
-public sealed class HistoryCommand : ToolCommand
-{
-    public override void Run(ToolContext ctx)
-    {
-        var t = new TableData(Loc.T("Histórico", "History"));
-        t.AddColumn(Loc.T("Data", "Date")).AddColumn(Loc.T("Ferramenta", "Tool")).AddColumn(Loc.T("Projeto", "Project"))
-         .AddColumn(Loc.T("Status", "Status")).AddColumn(Loc.T("Duração (s)", "Duration (s)"), ColumnKind.Number, 1)
-         .AddColumn(Loc.T("Resumo", "Summary"));
-        foreach (var e in Services.History.ReadLast(2000))
-        {
-            var status = e.Status switch
-            {
-                RunStatus.Failed => Loc.T("Falhou", "Failed"),
-                RunStatus.Cancelled => Loc.T("Cancelado", "Cancelled"),
-                RunStatus.Warning => Loc.T("Com avisos", "With warnings"),
-                _ => Loc.T("Concluído", "Completed"),
-            };
-            t.AddRow(e.Time.ToString("g", Loc.Culture), ToolCatalog.Get(e.ToolId)?.Name.Value ?? e.ToolName, e.Document ?? "", status, e.DurationMs / 1000.0, e.Summary ?? "");
-        }
-        ctx.Report.Tables.Add(t);
-        ctx.Report.ForceShow = true;
-        ctx.Report.Info(Loc.F("Arquivo do histórico: {0}", "History file: {0}", Services.History.FilePath));
-    }
-}
-
-[Transaction(TransactionMode.Manual)]
 [Tool("general.about", Modules.General, "Diagnóstico", "Diagnostics", Order = 40, RequiresDocument = false,
     DescPt = "Versão, pastas, templates de família encontrados e informações para suporte.",
     DescEn = "Version, folders, family templates found and support information.",
@@ -188,6 +158,22 @@ public sealed class AboutCommand : ToolCommand
 {
     public override void Run(ToolContext ctx)
     {
+        var choice = Msg.Choose(Loc.T("O que você quer fazer?", "What do you want to do?"), ctx.Tool.Name,
+            Loc.T("Ver o diagnóstico do plugin", "View the plugin diagnostics"),
+            Loc.T("Abrir a pasta de dados e logs (para enviar ao suporte)", "Open the data and logs folder (to send to support)"));
+        if (choice < 0) ctx.Cancel();
+        if (choice == 1)
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{Paths.Logs}\"") { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                Msg.Warn(ex.Message);
+            }
+            return;
+        }
         var app = ctx.App.Application;
         var t = new TableData(Loc.T("Diagnóstico", "Diagnostics"));
         t.AddColumn(Loc.T("Item", "Item")).AddColumn(Loc.T("Valor", "Value"));
@@ -216,13 +202,3 @@ public sealed class AboutCommand : ToolCommand
     }
 }
 
-[Transaction(TransactionMode.Manual)]
-[Tool("general.logs", Modules.General, "Abrir pasta de dados", "Open data folder", Order = 50, RequiresDocument = false, Ribbon = false,
-    DescPt = "Abre a pasta com configurações, presets, logs e exportações do plugin.",
-    DescEn = "Opens the folder with plugin settings, presets, logs and exports.",
-    Keywords = "pasta dados logs presets folder")]
-public sealed class OpenDataFolderCommand : ToolCommand
-{
-    public override void Run(ToolContext ctx) =>
-        Process.Start(new ProcessStartInfo(Paths.Root) { UseShellExecute = true });
-}

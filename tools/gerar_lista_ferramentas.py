@@ -3,9 +3,9 @@
 import re, glob, sys, os
 root = sys.argv[1]
 src = os.path.join(root, 'src', 'TeraTools.Revit')
-modules = [("general","Geral","Painel, busca, configurações e ajuda"),("modeling","Modelagem","Alinhar, distribuir, matrizes e transformações"),
- ("selection","Seleção","Seleção, filtros e visibilidade"),("analysis","Análise","Colisões e medições"),
- ("generators","Geradores","Padrões, imagem, brises, quadros espaciais, cinético e temas"),("geometry","Geometria","Booleanas, partes, aberturas e sólidos"),
+modules = [("general","Geral","Painel, busca, configurações e ajuda"),("modeling","Modelagem","Distribuir, girar no lugar, seleção avançada e conversão de CAD"),
+
+ ("generators","Geradores","Padrões, imagem, brises, quadros espaciais, cinético e temas"),
  ("floors","Pisos","Pisos, paginação, rodapés e revestimentos"),("interiors","Interiores","Ambientes, mobiliário, ergonomia, iluminação, forros e paredes"),
  ("joinery","Marcenaria","Módulos planejados, detalhamento e plano de corte"),("materials","Materiais","Biblioteca, aplicação e especificação de materiais"),
  ("docs","Documentação","Vistas, pranchas, anotações e exportação"),("quantities","Quantitativos","Tabelas, quantitativos e orçamento"),

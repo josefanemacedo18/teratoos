@@ -12,69 +12,6 @@ using TeraTools.Revit.Ui;
 
 namespace TeraTools.Revit.Tools.Project;
 
-public sealed class ProjectSettingsOptions
-{
-    [Opt("Código do projeto", "Project code", Group = "Projeto|Project", Tip = "Usado em nomes de arquivos e relatórios.|Used in file names and reports.")]
-    public string ProjectCode { get; set; } = "";
-
-    [Opt("Cliente", "Client", Group = "Projeto|Project")]
-    public string ClientName { get; set; } = "";
-
-    [Opt("Responsável", "Author", Group = "Projeto|Project")]
-    public string Author { get; set; } = "";
-
-    [Opt("Etapa (estudo, anteprojeto, executivo...)", "Stage (study, preliminary, construction...)", Group = "Projeto|Project")]
-    public string Phase { get; set; } = "";
-
-    [Opt("Pasta de exportação deste projeto", "Export folder for this project", Kind = OptKind.Folder, Group = "Arquivos|Files",
-        Tip = "Vazio = pasta padrão do Téra Tools.|Empty = Téra Tools default folder.")]
-    public string ExportFolder { get; set; } = "";
-
-    [Opt("Copiar também para as Informações do projeto do Revit", "Also copy to Revit Project Information", Group = "Arquivos|Files")]
-    public bool SyncRevit { get; set; } = true;
-}
-
-[Transaction(TransactionMode.Manual)]
-[Tool("proj.settings", Modules.Project, "Configurações do projeto", "Project settings", Order = 10, Large = true,
-    DescPt = "Dados do projeto guardados no próprio arquivo (código, cliente, responsável, etapa, pasta de exportação), usados por relatórios, nomes e carimbos.",
-    DescEn = "Project data stored in the file itself (code, client, author, stage, export folder), used by reports, names and title blocks.",
-    Keywords = "configuracoes projeto dados cliente codigo etapa project settings data client")]
-public sealed class ProjectSettingsCommand : ToolCommand
-{
-    public override void Run(ToolContext ctx)
-    {
-        var doc = ctx.Doc;
-        var info = ProjectStorage.GetSection<ProjectInfoSection>(doc, ProjectSettings.SectionInfo);
-        var o = new ProjectSettingsOptions
-        {
-            ProjectCode = info.ProjectCode.Length > 0 ? info.ProjectCode : RevitGeo.Text(doc.ProjectInformation, BuiltInParameter.PROJECT_NUMBER),
-            ClientName = info.ClientName.Length > 0 ? info.ClientName : RevitGeo.Text(doc.ProjectInformation, BuiltInParameter.CLIENT_NAME),
-            Author = info.Author.Length > 0 ? info.Author : RevitGeo.Text(doc.ProjectInformation, BuiltInParameter.PROJECT_AUTHOR),
-            Phase = info.Phase.Length > 0 ? info.Phase : RevitGeo.Text(doc.ProjectInformation, BuiltInParameter.PROJECT_STATUS),
-            ExportFolder = info.Extra.TryGetValue("ExportFolder", out var f) ? f : "",
-        };
-        o = ctx.Ask(o);
-        info.ProjectCode = o.ProjectCode;
-        info.ClientName = o.ClientName;
-        info.Author = o.Author;
-        info.Phase = o.Phase;
-        info.Extra["ExportFolder"] = o.ExportFolder;
-        ctx.Modify(ctx.Tool.Name, () =>
-        {
-            ProjectStorage.SetSection(doc, ProjectSettings.SectionInfo, info);
-            if (o.SyncRevit)
-            {
-                var pi = doc.ProjectInformation;
-                if (o.ProjectCode.Length > 0) RevitGeo.Set(pi, BuiltInParameter.PROJECT_NUMBER, o.ProjectCode);
-                if (o.ClientName.Length > 0) RevitGeo.Set(pi, BuiltInParameter.CLIENT_NAME, o.ClientName);
-                if (o.Author.Length > 0) RevitGeo.Set(pi, BuiltInParameter.PROJECT_AUTHOR, o.Author);
-                if (o.Phase.Length > 0) RevitGeo.Set(pi, BuiltInParameter.PROJECT_STATUS, o.Phase);
-            }
-        });
-        ctx.Report.Success(Loc.T("Configurações salvas no projeto.", "Settings saved in the project."));
-    }
-}
-
 public enum PresetAction
 {
     [Text("Listar todos os presets", "List all presets")] List,

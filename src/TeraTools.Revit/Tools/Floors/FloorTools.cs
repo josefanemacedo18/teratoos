@@ -558,11 +558,6 @@ public sealed class PagingCommand : ToolCommand
     }
 }
 
-public enum BaseboardMode
-{
-    [Text("Parede fina (rodapé como parede, por ambiente)", "Thin wall (baseboard as wall, per room)")] ThinWall,
-}
-
 public sealed class BaseboardOptions
 {
     [Opt("Tipo de parede do rodapé", "Baseboard wall type", Kind = OptKind.WallType, Required = true, Tip = "Use um tipo fino (ex.: 15 mm) com o material do rodapé.|Use a thin type (e.g. 15 mm) with the baseboard material.")]

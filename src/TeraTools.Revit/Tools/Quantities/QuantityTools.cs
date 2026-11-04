@@ -186,6 +186,7 @@ internal static class QuantityCollector
 
 public sealed class QtySchedulesOptions
 {
+    [Opt("Ambientes (número, nome, área, acabamentos)", "Rooms (number, name, area, finishes)")] public bool Rooms { get; set; } = true;
     [Opt("Pisos por tipo", "Floors by type")] public bool Floors { get; set; } = true;
     [Opt("Paredes por tipo", "Walls by type")] public bool Walls { get; set; } = true;
     [Opt("Forros por tipo", "Ceilings by type")] public bool Ceilings { get; set; } = true;
@@ -226,6 +227,14 @@ public sealed class QtySchedulesCommand : ToolCommand
             }
             var famType = new Schedules.Spec("BIP:ELEM_FAMILY_AND_TYPE_PARAM");
             var count = new Schedules.Spec("#count", Loc.T("Quantidade", "Count"));
+            Make(o.Rooms, () => Schedules.Create(doc, BuiltInCategory.OST_Rooms, Loc.T("TT Tabela de ambientes", "TT Room schedule"),
+                new[]
+                {
+                    new Schedules.Spec("BIP:ROOM_NUMBER"), new Schedules.Spec("BIP:ROOM_NAME"), new Schedules.Spec("BIP:ROOM_LEVEL_ID"),
+                    new Schedules.Spec("BIP:ROOM_AREA", Totals: true), new Schedules.Spec("BIP:ROOM_PERIMETER"), new Schedules.Spec("BIP:ROOM_DEPARTMENT"),
+                    new Schedules.Spec("BIP:ROOM_FINISH_FLOOR"), new Schedules.Spec("BIP:ROOM_FINISH_WALL"), new Schedules.Spec("BIP:ROOM_FINISH_CEILING"),
+                    new Schedules.Spec("BIP:ROOM_FINISH_BASE"),
+                }, null, new[] { "BIP:ROOM_LEVEL_ID", "BIP:ROOM_NUMBER" }, report: ctx.Report));
             Make(o.Floors, () => Schedules.Create(doc, BuiltInCategory.OST_Floors, Loc.T("TT Pisos por tipo", "TT Floors by type"),
                 new[] { famType, new Schedules.Spec("BIP:HOST_AREA_COMPUTED", Totals: true), count }, null, new[] { "BIP:ELEM_FAMILY_AND_TYPE_PARAM" }, itemized: false, report: ctx.Report));
             Make(o.Walls, () => Schedules.Create(doc, BuiltInCategory.OST_Walls, Loc.T("TT Paredes por tipo", "TT Walls by type"),

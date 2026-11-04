@@ -324,20 +324,6 @@ internal static class GenRegistry
 }
 
 [Transaction(TransactionMode.Manual)]
-[Tool("gen.kineticstate", Modules.Generators, "Atualizar estado cinético", "Update kinetic state", Order = 51,
-    DescPt = "Muda a abertura (ou o comportamento) de um conjunto cinético já gerado.",
-    DescEn = "Changes the opening (or behavior) of an already generated kinetic set.",
-    Keywords = "cinetico estado abertura atualizar kinetic state opening")]
-public sealed class KineticStateCommand : ToolCommand
-{
-    public override void Run(ToolContext ctx)
-    {
-        var (id, sys) = GenRegistry.PickSystem(ctx, "gen.kinetic");
-        KineticCommand.Regenerate(ctx, sys.OptionsJson, sys.ContextJson, id);
-    }
-}
-
-[Transaction(TransactionMode.Manual)]
 [Tool("gen.edit", Modules.Generators, "Editar sistema gerado", "Edit generated system", Order = 90,
     DescPt = "Reabre as opções de qualquer padrão, mosaico, brise, quadro espacial ou cinético gerado e o regenera no mesmo lugar.",
     DescEn = "Reopens the options of any generated pattern, mosaic, louver, space frame or kinetic set and regenerates it in place.",

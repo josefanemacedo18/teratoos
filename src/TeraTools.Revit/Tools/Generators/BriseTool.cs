@@ -11,12 +11,6 @@ using TeraTools.Revit.Ui;
 
 namespace TeraTools.Revit.Tools.Generators;
 
-public enum BrisePath
-{
-    [Text("Parede (segue a fachada e desvia das aberturas)", "Wall (follows the facade and avoids openings)")] Wall,
-    [Text("Linhas de modelo escolhidas", "Picked model lines")] Lines,
-}
-
 public sealed class BriseOptions
 {
     [Opt("Orientação", "Orientation", Group = "Aletas|Fins")]

@@ -34,36 +34,17 @@ public static class Icons
         ["general.pane"] = "f:M4,5 H28 V27 H4 Z;F:M19,5 H28 V27 H19 Z;s:M7,10 H15 M7,14 H15 M7,18 H13",
         ["general.settings"] = "s:M16,11 A5,5 0 1 1 15.99,11 Z;a:M16,3 V8 M16,24 V29 M3,16 H8 M24,16 H29 M6.8,6.8 L10.3,10.3 M21.7,21.7 L25.2,25.2 M6.8,25.2 L10.3,21.7 M21.7,10.3 L25.2,6.8",
         ["general.help"] = "s:M16,3 A13,13 0 1 1 15.99,3 Z;a:M11.5,12 A4.5,4.5 0 1 1 16,16.5 V19;F:M14.5,22 H17.5 V25 H14.5 Z",
-        ["general.history"] = "s:M16,4 A12,12 0 1 1 5,11;a:M16,9 V16 L21,19;a:M3,6 L5,11 L10,9",
         ["general.about"] = "f:M4,6 H28 V24 H4 Z;s:M12,28 H20 M16,24 V28;a:M9,17 L13,13 L17,17 L23,11",
 
         // ---------- Modelagem
-        ["modeling.align"] = "a:M6,3 V29;f:M9,7 H25 V13 H9 Z;f:M9,18 H19 V24 H9 Z",
         ["modeling.distribute"] = "f:M4,10 H9 V22 H4 Z;f:M13.5,10 H18.5 V22 H13.5 Z;f:M23,10 H28 V22 H23 Z;a:M6.5,27 H25.5 M6.5,25 V29 M16,25 V29 M25.5,25 V29",
-        ["modeling.arraylinear"] = "f:M3,12 H9 V20 H3 Z;F:M13,12 H19 V20 H13 Z;F:M23,12 H29 V20 H23 Z;d:M6,25 H26",
-        ["modeling.arrayradial"] = "d:M16,6 A10,10 0 1 1 15.99,6 Z;F:M14,3 H18 V9 H14 Z;F:M24,14 H30 V18 H24 Z;F:M14,23 H18 V29 H14 Z;f:M2,14 H8 V18 H2 Z",
-        ["modeling.copy"] = "f:M4,4 H17 V17 H4 Z;F:M14,14 H27 V27 H14 Z;a:M20,7 H26 V13",
-        ["modeling.mirror"] = "d:M16,3 V29;f:M4,9 L12,6 V24 L4,21 Z;F:M28,9 L20,6 V24 L28,21 Z",
         ["modeling.rotate"] = "f:M10,10 H22 V22 H10 Z;a:M26,10 A11,11 0 0 0 6,10;a:M3,6 L6,10 L10,7",
-        ["modeling.elevation"] = "f:M8,6 H24 V14 H8 Z;d:M8,22 H24 V28 H8 Z;a:M16,15 V22 M12,18 L16,22 L20,18",
-        ["modeling.resize"] = "f:M6,10 H20 V24 H6 Z;a:M14,6 H26 V18 M20,12 L26,6",
-        ["modeling.group"] = "d:M3,3 H29 V29 H3 Z;f:M8,8 H15 V15 H8 Z;F:M17,17 H24 V24 H17 Z;f:M17,8 H24 V13 H17 Z",
-        ["modeling.ungroup"] = "f:M4,4 H12 V12 H4 Z;F:M20,20 H28 V28 H20 Z;a:M14,14 L18,18 M12,20 L20,12",
-        ["modeling.replacetype"] = "f:M4,6 H13 V15 H4 Z;F:M19,17 H28 V26 H19 Z;a:M15,10 H24 V14 M21,11 L24,14 L27,11 M17,22 H8 V18 M5,21 L8,18 L11,21",
-        ["modeling.refline"] = "d:M3,26 L29,6;a:M6,6 V12 M3,9 H9;a:M23,23 V29 M20,26 H26",
 
         // ---------- Seleção
         ["selection.filter"] = "f:M4,5 H28 L19,16 V26 L13,28 V16 Z",
-        ["selection.similar"] = "F:M4,8 H12 V16 H4 Z;f:M14,8 H22 V16 H14 Z;f:M9,19 H17 V27 H9 Z;a:M24,6 L28,10 L24,14",
-        ["selection.isolate"] = "d:M3,3 H29 V29 H3 Z;F:M11,11 H21 V21 H11 Z",
-        ["selection.hide"] = "s:M3,16 C8,8 24,8 29,16 C24,24 8,24 3,16 Z;a:M16,12 A4,4 0 1 1 15.99,12 Z;a:M5,27 L27,5",
-        ["selection.reveal"] = "s:M3,16 C8,8 24,8 29,16 C24,24 8,24 3,16 Z;F:M16,12 A4,4 0 1 1 15.99,12 Z",
         ["selection.byroom"] = "s:M4,6 H28 V26 H4 Z M16,6 V16 M16,20 V26;F:M8,10 H13 V15 H8 Z;F:M20,18 H25 V23 H20 Z",
 
         // ---------- Análise
-        ["analysis.clash"] = "f:M4,8 H18 V22 H4 Z;f:M14,12 H28 V26 H14 Z;F:M14,12 H18 V22 H14 Z",
-        ["analysis.measure"] = "f:M3,12 H29 V20 H3 Z;a:M7,12 V16 M11,12 V15 M15,12 V16 M19,12 V15 M23,12 V16 M27,12 V15",
-        ["analysis.distance"] = "a:M5,24 L27,8;F:M3,22 H7 V26 H3 Z;F:M25,6 H29 V10 H25 Z;s:M8,28 L29,13",
 
         // ---------- Geradores
         ["gen.pattern"] = "F:M6,6 A3,3 0 1 1 5.99,6 Z;F:M16,6 A3,3 0 1 1 15.99,6 Z;F:M26,6 A3,3 0 1 1 25.99,6 Z;F:M11,14 A3,3 0 1 1 10.99,14 Z;F:M21,14 A3,3 0 1 1 20.99,14 Z;f:M6,22 A3,3 0 1 1 5.99,22 Z;f:M16,22 A3,3 0 1 1 15.99,22 Z;f:M26,22 A3,3 0 1 1 25.99,22 Z",
@@ -71,24 +52,13 @@ public static class Icons
         ["gen.brise"] = "s:M3,4 V28;F:M7,5 L11,4 V28 L7,27 Z;F:M14,5 L18,4 V28 L14,27 Z;F:M21,5 L25,4 V28 L21,27 Z",
         ["gen.spaceframe"] = "s:M3,10 H29 M3,22 H29;a:M3,10 L9,22 L15,10 L21,22 L27,10 M9,22 L3,10 M27,10 L29,14",
         ["gen.kinetic"] = "s:M3,28 H29;f:M5,6 L10,8 V24 L5,26 Z;F:M13,6 L19,10 V22 L13,26 Z;f:M22,6 L28,12 V20 L22,26 Z",
-        ["gen.kineticstate"] = "f:M5,6 L10,8 V24 L5,26 Z;F:M14,6 L20,10 V22 L14,26 Z;a:M24,10 A6,6 0 0 1 24,22 M24,22 L27,19 M24,22 L21,19",
         ["gen.edit"] = "F:M6,6 A3,3 0 1 1 5.99,6 Z;F:M16,6 A3,3 0 1 1 15.99,6 Z;f:M6,16 A3,3 0 1 1 5.99,16 Z;a:M14,28 L16,22 L26,12 L30,16 L20,26 Z",
         ["gen.palette"] = "f:M16,4 C9,4 4,9 4,16 C4,23 9,28 15,28 C18,28 18,25 17,23 C16,21 18,19 21,20 C26,21 28,18 28,15 C28,9 23,4 16,4 Z;F:M10,12 A2,2 0 1 1 9.99,12 Z;F:M16,8 A2,2 0 1 1 15.99,8 Z;F:M22,11 A2,2 0 1 1 21.99,11 Z;g:M10,19 A2,2 0 1 1 9.99,19 Z",
         ["gen.colorby"] = "f:M3,6 H29 V26 H3 Z;F:M6,9 H14 V16 H6 Z;g:M18,9 H26 V16 H18 Z;f:M6,19 H14 V23 H6 Z;F:M18,19 H26 V23 H18 Z",
         ["gen.viewstyle"] = "f:M3,7 H29 V25 H3 Z;F:M3,20 L11,13 L17,18 L22,14 L29,20 V25 H3 Z;s:M22,9 A2,2 0 1 1 21.99,9 Z",
 
         // ---------- Geometria
-        ["geo.join"] = "f:M4,10 H16 V22 H4 Z;F:M16,10 H28 V22 H16 Z;a:M16,6 V26",
-        ["geo.unjoin"] = "f:M3,10 H13 V22 H3 Z;f:M19,10 H29 V22 H19 Z;a:M16,6 V26",
-        ["geo.cut"] = "f:M4,6 H28 V26 H4 Z;d:M12,12 H20 V20 H12 Z;a:M16,2 V8",
-        ["geo.boolean"] = "f:M12,7 A8,8 0 1 1 11.99,7 Z;s:M20,9 A8,8 0 1 1 19.99,9 Z;F:M16,8.2 A8,8 0 0 1 16,23.8 A8,8 0 0 1 16,8.2 Z",
-        ["geo.parts"] = "f:M3,8 H29 V24 H3 Z;a:M11,8 V24 M20,8 V24 M3,16 H29",
-        ["geo.opening"] = "f:M3,6 H29 V26 H3 Z;F:M11,11 H21 V21 H11 Z",
-        ["geo.solid"] = "f:M5,22 L12,26 L27,18 L20,14 Z;F:M5,10 L12,14 L27,6 L20,2 Z;s:M5,10 V22 M12,14 V26 M27,6 V18",
-        ["geo.thicken"] = "f:M4,18 L16,24 L28,18 L16,12 Z;F:M4,12 L16,18 L28,12 L16,6 Z;a:M30,8 V20",
         ["geo.convert"] = "d:M3,8 H13 V20;F:M19,8 H29 V24 H19 Z;a:M13,14 H18 M15,11 L18,14 L15,17",
-        ["geo.simplify"] = "s:M5,20 L9,8 L14,14 L19,6 L24,15 L27,10;F:M5,22 H27 V28 H5 Z",
-        ["geo.validate"] = "f:M4,8 L16,4 L28,8 V24 L16,28 L4,24 Z;a:M10,16 L14,20 L22,12",
 
         // ---------- Pisos
         ["floor.byroom"] = "s:M4,4 H28 V28 H4 Z;F:M7,7 H25 V25 H7 Z",
@@ -101,19 +71,14 @@ public static class Icons
         ["floor.pagingviews"] = "f:M7,3 H20 L26,9 V29 H7 Z;s:M10,13 H23 M10,18 H23 M10,23 H23 M14.5,13 V27 M19,13 V27",
 
         // ---------- Ambientes / interiores
-        ["room.create"] = "s:M4,4 H28 V28 H4 Z;a:M10,16 H22 M16,10 V22",
         ["room.number"] = "s:M4,4 H28 V28 H4 Z;a:M11,11 L14,9 V23 M18,11 C18,8 24,8 24,11 C24,14 18,18 18,23 H24",
         ["room.rename"] = "s:M4,8 H28 V24 H4 Z;a:M8,20 L11,12 L14,20 M9,17 H13 M17,12 V20 M17,12 H20 A2,2 0 0 1 20,16 H17 M17,16 H21 A2,2 0 0 1 21,20 H17",
         ["room.params"] = "f:M4,5 H28 V27 H4 Z;s:M4,12 H28 M4,19 H28 M12,5 V27;a:M15,9 H25 M15,16 H22 M15,23 H24",
         ["room.check"] = "s:M4,4 H28 V28 H4 Z;F:M14,8 H18 V18 H14 Z;F:M14,21 H18 V25 H14 Z",
         ["room.views"] = "s:M6,6 H26 V26 H6 Z;a:M16,2 V8 M16,24 V30 M2,16 H8 M24,16 H30;F:M13,13 H19 V19 H13 Z",
         ["views.organize"] = "f:M4,4 H13 V13 H4 Z;f:M4,19 H13 V28 H4 Z;a:M17,8 H28 M17,12 H24 M17,23 H28 M17,27 H24",
-        ["room.schedule"] = "s:M4,6 H28 V26 H4 Z;s:M4,12 H28 M4,19 H28;a:M13,6 V26",
         ["furn.list"] = "s:M6,4 H26 V28 H6 Z;a:M10,10 H22 M10,16 H22 M10,22 H18",
         ["gen.select"] = "s:M5,5 H27 V27 H5 Z;F:M12,12 L24,18 L18,19 L16,25 Z",
-        ["general.logs"] = "s:M8,4 H22 L26,8 V28 H8 Z;a:M12,13 H22 M12,18 H22 M12,23 H18",
-        ["geo.offsetface"] = "s:M4,24 H28;a:M4,12 H28;F:M14,20 L16,14 L18,20 Z",
-        ["furn.place"] = "f:M5,12 H27 V20 H5 Z;f:M7,7 H25 V12 H7 Z;s:M7,20 V25 M25,20 V25;a:M26,2 V10 M22,6 H30",
         ["furn.distribute"] = "s:M3,3 H29 V29 H3 Z;F:M7,7 H13 V13 H7 Z;F:M19,7 H25 V13 H19 Z;F:M7,19 H13 V25 H7 Z;F:M19,19 H25 V25 H19 Z",
         ["furn.presetsave"] = "f:M4,4 H24 L28,8 V28 H4 Z;F:M9,4 H21 V11 H9 Z;s:M9,17 H23 V28 H9 Z",
         ["furn.presetapply"] = "f:M4,8 H22 V26 H4 Z;F:M8,12 H13 V17 H8 Z;F:M14,18 H19 V23 H14 Z;a:M24,6 H30 M27,3 V9",
@@ -123,7 +88,6 @@ public static class Icons
         ["light.grid"] = "F:M8,8 A3,3 0 1 1 7.99,8 Z;F:M24,8 A3,3 0 1 1 23.99,8 Z;F:M8,24 A3,3 0 1 1 7.99,24 Z;F:M24,24 A3,3 0 1 1 23.99,24 Z;d:M8,8 H24 V24 H8 Z",
         ["light.overfurniture"] = "s:M16,2 V8;F:M10,8 H22 L19,14 H13 Z;a:M13,17 L11,20 M19,17 L21,20 M16,16 V20;f:M5,24 H27 V28 H5 Z",
         ["light.groups"] = "F:M7,8 A3,3 0 1 1 6.99,8 Z;F:M16,8 A3,3 0 1 1 15.99,8 Z;F:M25,8 A3,3 0 1 1 24.99,8 Z;a:M7,11 V20 H25 V11 M16,11 V20 M16,20 V28",
-        ["ceil.rcp"] = "f:M3,6 H29 V12 H3 Z;s:M7,12 V16 M16,12 V16 M25,12 V16;a:M6,22 L16,28 L26,22",
         ["ceil.byroom"] = "F:M3,4 H29 V10 H3 Z;s:M4,10 V28 M28,10 V28 M4,28 H28",
         ["ceil.cove"] = "F:M3,4 H29 V8 H3 Z;f:M3,8 H9 V14 H3 Z;f:M23,8 H29 V14 H23 Z;a:M10,11 L13,17 M22,11 L19,17",
         ["ceil.opening"] = "f:M3,8 H29 V16 H3 Z;F:M10,8 H22 V16 H10 Z;a:M16,18 V26 M12,22 L16,26 L20,22",
@@ -143,26 +107,18 @@ public static class Icons
 
         // ---------- Materiais
         ["mat.library"] = "F:M4,4 H10 V28 H4 Z;f:M11,4 H17 V28 H11 Z;F:M18,6 L23,4 L29,26 L24,28 Z",
-        ["mat.apply"] = "f:M4,14 H20 V28 H4 Z;F:M18,3 L28,13 L24,17 L14,7 Z;a:M16,9 L10,15",
         ["mat.byroom"] = "s:M3,4 H29 V28 H3 Z M16,4 V28;F:M6,7 H13 V14 H6 Z;g:M19,18 H26 V25 H19 Z",
         ["mat.replace"] = "F:M3,6 H13 V16 H3 Z;f:M19,16 H29 V26 H19 Z;a:M15,10 H24 V14 M21,11 L24,14 L27,11",
         ["mat.specs"] = "f:M5,3 H27 V29 H5 Z;F:M9,7 H15 V13 H9 Z;s:M18,9 H24 M9,18 H23 M9,22 H23 M9,26 H17",
-        ["mat.report"] = "f:M5,3 H27 V29 H5 Z;F:M9,20 H13 V26 H9 Z;F:M15,14 H19 V26 H15 Z;F:M21,9 H25 V26 H21 Z",
 
         // ---------- Documentação
         ["doc.plans"] = "f:M4,4 H28 V28 H4 Z;s:M4,16 H16 V28 M16,4 V12 M22,16 H28;a:M8,8 H12",
         ["doc.sections"] = "s:M4,8 H28 M4,24 H28;a:M16,3 V29;F:M12,3 H20 L16,8 Z",
         ["doc.axo"] = "f:M16,4 L28,10 V22 L16,28 L4,22 V10 Z;s:M4,10 L16,16 L28,10 M16,16 V28",
-        ["doc.viewsettings"] = "f:M3,6 H29 V26 H3 Z;a:M7,20 H25 M9,17 V23 M16,17 V23 M23,17 V23;s:M7,11 H18",
         ["doc.sheets"] = "f:M3,6 H29 V26 H3 Z;F:M21,19 H29 V26 H21 Z;s:M6,9 H18 V22 H6 Z",
         ["doc.placeviews"] = "f:M3,6 H29 V26 H3 Z;F:M6,9 H15 V18 H6 Z;F:M17,9 H26 V15 H17 Z;s:M17,18 H26 V23 H17 Z",
         ["doc.renumber"] = "f:M6,3 H26 V29 H6 Z;a:M11,10 H21 M11,16 H21 M11,22 H17;F:M20,20 H29 V29 H20 Z",
-        ["doc.titleblock"] = "f:M3,4 H29 V28 H3 Z;F:M18,20 H29 V28 H18 Z;s:M3,20 H29",
-        ["doc.sheetindex"] = "f:M5,3 H27 V29 H5 Z;a:M9,9 H11 M9,15 H11 M9,21 H11;s:M14,9 H23 M14,15 H23 M14,21 H23",
-        ["doc.pdf"] = "f:M6,3 H20 L26,9 V29 H6 Z;F:M3,15 H22 V24 H3 Z;w:M6,18 V22 M6,18 H8 A1,1 0 0 1 8,20 H6 M11,18 V22 H13 V18 Z M16,18 V22 M16,18 H19 M16,20 H18",
-        ["doc.dwg"] = "f:M6,3 H20 L26,9 V29 H6 Z;F:M3,15 H24 V24 H3 Z;w:M6,18 V22 H8 A2,2 0 0 0 8,18 Z M11,18 L12,22 L13.5,19 L15,22 L16,18 M19,18 H21 V22 H19 A2,2 0 0 1 19,18",
         ["doc.dims"] = "s:M5,10 V22 M27,10 V22;a:M5,16 H27 M5,16 L9,13 M5,16 L9,19 M27,16 L23,13 M27,16 L23,19",
-        ["doc.tags"] = "f:M4,10 H20 L28,16 L20,22 H4 Z;F:M8,14 H12 V18 H8 Z",
         ["doc.legend"] = "f:M4,4 H28 V28 H4 Z;F:M8,8 H13 V13 H8 Z;g:M8,15 H13 V20 H8 Z;F:M8,22 H13 V25 H8 Z;s:M16,10.5 H24 M16,17.5 H24 M16,23.5 H22",
         ["doc.notes"] = "f:M4,4 H28 V28 H4 Z;s:M8,10 H24 M8,15 H24 M8,20 H24 M8,25 H18;F:M4,4 H28 V7 H4 Z",
 
@@ -177,7 +133,6 @@ public static class Icons
         ["qa.rules"] = "f:M5,3 H27 V29 H5 Z;a:M9,10 L11,12 L14,8 M9,17 L11,19 L14,15 M9,24 L11,26 L14,22;s:M17,10 H23 M17,17 H23 M17,24 H23",
 
         // ---------- Projeto
-        ["proj.settings"] = "f:M5,3 H27 V29 H5 Z;s:M9,10 H23 M9,15 H19;a:M20,18 A4,4 0 1 1 19.99,18 Z M20,15 V16 M20,24 V25 M16,21 H17 M24,21 H25",
         ["proj.presets"] = "F:M4,6 H16 V18 H4 Z;f:M10,10 H22 V22 H10 Z;f:M16,14 H28 V26 H16 Z",
         ["proj.transfer"] = "f:M3,6 H13 V26 H3 Z;f:M19,6 H29 V26 H19 Z;a:M14,12 H18 M16,10 L18,12 L16,14 M18,20 H14 M16,18 L14,20 L16,22",
         ["proj.batch"] = "f:M3,4 H13 V14 H3 Z;f:M3,18 H13 V28 H3 Z;F:M19,11 H29 V21 H19 Z;a:M13,9 L19,14 M13,23 L19,18",

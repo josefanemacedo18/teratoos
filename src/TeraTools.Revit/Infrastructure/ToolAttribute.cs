@@ -101,11 +101,8 @@ public static class Modules
     public static readonly IReadOnlyList<ModuleInfo> All = new List<ModuleInfo>
     {
         new(General, new Txt("Geral", "General"), new Txt("Painel, busca, configurações e ajuda", "Panel, search, settings and help"), "#B5652B", "mod.general", 0),
-        new(Modeling, new Txt("Modelagem", "Modeling"), new Txt("Alinhar, distribuir, matrizes e transformações", "Align, distribute, arrays and transforms"), "#3B7DD8", "mod.modeling", 10),
-        new(Selection, new Txt("Seleção", "Selection"), new Txt("Seleção, filtros e visibilidade", "Selection, filters and visibility"), "#2E9C8A", "mod.selection", 20),
-        new(Analysis, new Txt("Análise", "Analysis"), new Txt("Colisões e medições", "Clashes and measurements"), "#C24E4E", "mod.analysis", 30),
+        new(Modeling, new Txt("Modelagem", "Modeling"), new Txt("Distribuir, girar no lugar, seleção avançada e conversão de CAD", "Distribute, rotate in place, advanced selection and CAD conversion"), "#3B7DD8", "mod.modeling", 10),
         new(Generators, new Txt("Geradores", "Generators"), new Txt("Padrões, imagem, brises, quadros espaciais, cinético e temas", "Patterns, image, louvers, space frames, kinetic and themes"), "#8C59C9", "mod.generators", 40),
-        new(Geometry, new Txt("Geometria", "Geometry"), new Txt("Booleanas, partes, aberturas e sólidos", "Booleans, parts, openings and solids"), "#5A6B7D", "mod.geometry", 50),
         new(Floors, new Txt("Pisos", "Floors"), new Txt("Pisos, paginação, rodapés e revestimentos", "Floors, tile layout, baseboards and finishes"), "#B08A3E", "mod.floors", 60),
         new(Interiors, new Txt("Interiores", "Interiors"), new Txt("Ambientes, mobiliário, ergonomia, iluminação, forros e paredes", "Rooms, furniture, ergonomics, lighting, ceilings and walls"), "#D07A3A", "mod.interiors", 70),
         new(Joinery, new Txt("Marcenaria", "Joinery"), new Txt("Módulos planejados, detalhamento e plano de corte", "Cabinetry modules, detailing and cutting plans"), "#8A5A35", "mod.joinery", 80),

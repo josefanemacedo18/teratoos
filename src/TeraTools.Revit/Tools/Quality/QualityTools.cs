@@ -189,6 +189,9 @@ public sealed class QaCheckOptions
     [Opt("Vistas fora de pranchas e pranchas vazias", "Views not on sheets and empty sheets", Group = "Verificações|Checks")]
     public bool Views { get; set; } = true;
 
+    [Opt("Geometria (sem sólido, volume nulo, linhas curtas demais)", "Geometry (no solid, zero volume, too-short lines)", Group = "Verificações|Checks")]
+    public bool Geometry { get; set; } = true;
+
     [Opt("Salvar relatório (HTML e Excel)", "Save report (HTML and Excel)", Group = "Saída|Output")]
     public bool Save { get; set; } = true;
 }
@@ -281,6 +284,38 @@ internal static class QaRunner
             var empty = Lookup.Collect<ViewSheet>(doc).Where(s => !s.IsPlaceholder && s.GetAllPlacedViews().Count == 0).ToList();
             foreach (var s in empty) report.Info(Loc.F("Prancha vazia: {0} - {1}", "Empty sheet: {0} - {1}", s.SheetNumber, s.Name), s.Id.Value);
             summary.AddRowWithIds(empty.Select(s => s.Id.Value), Loc.T("Pranchas vazias", "Empty sheets"), empty.Count);
+        }
+        if (o.Geometry)
+        {
+            var noGeom = new List<long>();
+            var zeroVol = new List<long>();
+            var shortLines = new List<long>();
+            var cats = Lookup.ModelCategories(doc).Select(c => c.Id).ToList();
+            foreach (var e in new FilteredElementCollector(doc).WhereElementIsNotElementType().WherePasses(new ElementMulticategoryFilter(cats)).ToElements())
+            {
+                try
+                {
+                    if (e is CurveElement ce)
+                    {
+                        if (ce.GeometryCurve != null && ce.GeometryCurve.Length < Core.Geometry.Tolerance.ShortCurve * 4) shortLines.Add(e.Id.Value);
+                        continue;
+                    }
+                    if (e is not (HostObject or DirectShape)) continue;
+                    var solids = RevitGeo.Solids(e);
+                    if (solids.Count == 0) noGeom.Add(e.Id.Value);
+                    else if (e is HostObject && solids.Sum(x => x.Volume) < 1e-6) zeroVol.Add(e.Id.Value);
+                }
+                catch (Exception ex)
+                {
+                    Log.Debug("Geometria: " + ex.Message);
+                }
+            }
+            if (noGeom.Count > 0) report.Warn(Loc.F("{0} elemento(s) sem geometria sólida.", "{0} element(s) without solid geometry.", noGeom.Count), noGeom, Loc.T("Geometria", "Geometry"));
+            if (zeroVol.Count > 0) report.Warn(Loc.F("{0} elemento(s) com volume nulo.", "{0} element(s) with zero volume.", zeroVol.Count), zeroVol, Loc.T("Geometria", "Geometry"));
+            if (shortLines.Count > 0) report.Warn(Loc.F("{0} linha(s) curtas demais (o Revit pode recusar operações com elas).", "{0} too-short line(s) (Revit may reject operations with them).", shortLines.Count), shortLines, Loc.T("Geometria", "Geometry"));
+            summary.AddRowWithIds(noGeom, Loc.T("Elementos sem geometria", "Elements without geometry"), noGeom.Count);
+            summary.AddRowWithIds(zeroVol, Loc.T("Elementos com volume nulo", "Zero-volume elements"), zeroVol.Count);
+            summary.AddRowWithIds(shortLines, Loc.T("Linhas curtas demais", "Too-short lines"), shortLines.Count);
         }
         report.Tables.Insert(0, summary);
         if (!report.HasErrors && !report.HasWarnings) report.Success(Loc.T("Nenhum problema encontrado pelas verificações escolhidas.", "No problem found by the chosen checks."));
