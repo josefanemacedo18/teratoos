@@ -77,6 +77,8 @@ public static class Icons
         ["room.check"] = "s:M4,4 H28 V28 H4 Z;F:M14,8 H18 V18 H14 Z;F:M14,21 H18 V25 H14 Z",
         ["room.views"] = "s:M6,6 H26 V26 H6 Z;a:M16,2 V8 M16,24 V30 M2,16 H8 M24,16 H30;F:M13,13 H19 V19 H13 Z",
         ["views.organize"] = "f:M4,4 H13 V13 H4 Z;f:M4,19 H13 V28 H4 Z;a:M17,8 H28 M17,12 H24 M17,23 H28 M17,27 H24",
+        ["floor.merge"] = "s:M4,8 H16 V20 H4 Z;s:M14,12 H28 V24 H14 Z;F:M14,12 H16 V20 H14 Z",
+        ["floor.filler"] = "s:M4,4 H28 V28 H4 Z;F:M16,16 H28 V28 H16 Z;a:M4,16 H16 V4",
         ["furn.list"] = "s:M6,4 H26 V28 H6 Z;a:M10,10 H22 M10,16 H22 M10,22 H18",
         ["gen.select"] = "s:M5,5 H27 V27 H5 Z;F:M12,12 L24,18 L18,19 L16,25 Z",
         ["furn.distribute"] = "s:M3,3 H29 V29 H3 Z;F:M7,7 H13 V13 H7 Z;F:M19,7 H25 V13 H19 Z;F:M7,19 H13 V25 H7 Z;F:M19,19 H25 V25 H19 Z",

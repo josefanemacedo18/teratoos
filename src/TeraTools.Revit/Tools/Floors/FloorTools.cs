@@ -88,7 +88,7 @@ public sealed class FloorByRoomOptions
 }
 
 [Transaction(TransactionMode.Manual)]
-[Tool("floor.byroom", Modules.Floors, "Piso por ambiente", "Floor by room", Order = 10, Large = true,
+[Tool("floor.byroom", Modules.Floors, "Piso por ambiente (Floor Tracer)", "Floor by room (Floor Tracer)", Order = 10, Large = true,
     DescPt = "Cria pisos pelo contorno dos ambientes (face de acabamento, eixo ou núcleo), com furos de pilares e shafts.",
     DescEn = "Creates floors from room outlines (finish face, centerline or core), with column and shaft holes.",
     Keywords = "piso ambiente contorno floor room outline")]
@@ -151,7 +151,7 @@ public sealed class FloorRegionsOptions
 }
 
 [Transaction(TransactionMode.Manual)]
-[Tool("floor.regions", Modules.Floors, "Dividir piso em regiões", "Split floor into regions", Order = 20,
+[Tool("floor.regions", Modules.Floors, "Dividir piso (Floor Splitter)", "Split floor (Floor Splitter)", Order = 20,
     DescPt = "Usa contornos fechados de linhas de modelo para criar regiões de piso com outro tipo/material, recortando o piso base.",
     DescEn = "Uses closed model-line loops to create floor regions of another type/material, cutting the base floor.",
     Keywords = "regiao piso dividir recortar region floor split")]
@@ -753,39 +753,6 @@ public sealed class TileQuantityCommand : ToolCommand
         }
         t.AddTotalsRow(Loc.T("TOTAL", "TOTAL"), 1, 3, 4, 5, 6, 7);
         ctx.Report.Tables.Add(t);
-        ctx.Report.ForceShow = true;
-    }
-}
-
-[Transaction(TransactionMode.Manual)]
-[Tool("floor.uncovered", Modules.Floors, "Ambientes sem revestimento", "Rooms without finish", Order = 70,
-    DescPt = "Lista ambientes sem piso modelado (ou sem acabamento de piso informado) para conferência.",
-    DescEn = "Lists rooms without a modeled floor (or without a floor finish value) for review.",
-    Keywords = "ambientes sem piso revestimento faltando uncovered missing floor")]
-public sealed class UncoveredCommand : ToolCommand
-{
-    public override void Run(ToolContext ctx)
-    {
-        var rooms = RevitGeo.Rooms(ctx.Doc).Where(r => r.Area > 0).ToList();
-        var t = new TableData(Loc.T("Ambientes sem revestimento", "Rooms without finish"));
-        t.AddColumn(Loc.T("Ambiente", "Room")).AddColumn(Loc.T("Nível", "Level")).AddColumn(Loc.T("Área (m²)", "Area (m²)"), ColumnKind.Number)
-         .AddColumn(Loc.T("Piso coberto (%)", "Floor covered (%)"), ColumnKind.Number, 0).AddColumn(Loc.T("Acabamento informado", "Finish value"));
-        foreach (var room in rooms)
-        {
-            var reg = RevitGeo.RoomRegion(room);
-            if (reg == null) continue;
-            var (_, area) = FloorUtil.FloorsInRoom(ctx.Doc, room, reg);
-            var pct = reg.Area > 0 ? Math.Min(100, area / reg.Area * 100) : 0;
-            var finish = RevitGeo.Text(room, BuiltInParameter.ROOM_FINISH_FLOOR);
-            if (pct < 95 || string.IsNullOrWhiteSpace(finish))
-            {
-                t.AddRowWithIds(new[] { room.Id.Value }, FloorUtil.RoomLabel(room), room.Level?.Name ?? "", U.SqFtToM2(room.Area), pct, finish);
-                ctx.Report.Warn(Loc.F("{0}: piso {1:0}% coberto{2}", "{0}: floor {1:0}% covered{2}", FloorUtil.RoomLabel(room), pct,
-                    string.IsNullOrWhiteSpace(finish) ? Loc.T(", sem acabamento informado", ", no finish value") : ""), room.Id.Value);
-            }
-        }
-        if (t.RowCount == 0) ctx.Report.Success(Loc.T("Todos os ambientes têm piso e acabamento.", "All rooms have floor and finish."));
-        else ctx.Report.Tables.Add(t);
         ctx.Report.ForceShow = true;
     }
 }
