@@ -23,10 +23,17 @@ public sealed class Footprint
 /// </summary>
 public sealed class ErgonomicRules
 {
-    public string Name { get; set; } = "Referência (editável)";
-    public string ReferenceNote { get; set; } =
-        "Valores de referência editáveis. Confirme com a norma vigente (ex.: ABNT NBR 9050) e com o profissional responsável. " +
-        "Este relatório não declara conformidade.";
+    public string Name { get; set; } = DefaultName;
+    public string ReferenceNote { get; set; } = DefaultNote;
+
+    public const string DefaultName = "ABNT NBR 9050:2020 — valores de referência (editáveis)";
+
+    public const string DefaultNote =
+        "Valores de referência da ABNT NBR 9050:2020: circulação 0,90 m (pessoa em cadeira de rodas em linha reta); " +
+        "manobra 360° Ø 1,50 m; módulo de referência 0,80 × 1,20 m; vão livre de porta ≥ 0,80 m; lavatório com borda " +
+        "superior entre 0,78 e 0,80 m; bancadas/superfícies de trabalho entre 0,75 e 0,85 m; faixa livre de 0,90 m ao lado " +
+        "da cama; tomadas entre 0,40 e 1,00 m e interruptores entre 0,60 e 1,00 m do piso. Confira os valores no texto vigente " +
+        "da norma e com o profissional responsável. Este relatório não declara conformidade.";
 
     public double MinCirculation { get; set; } = U.M(0.90);
     public double IgnoreGapsBelow { get; set; } = U.M(0.05);
@@ -41,14 +48,38 @@ public sealed class ErgonomicRules
     public double CounterMaxHeight { get; set; } = U.M(0.85);
 
     /// <summary>Palavras que identificam bancadas/superfícies de trabalho pelo nome da família ou tipo.</summary>
-    public List<string> CounterKeywords { get; set; } = new() { "bancada", "balcão", "balcao", "counter", "lavatório", "lavatorio" };
+    public List<string> CounterKeywords { get; set; } = new() { "bancada", "balcão", "balcao", "counter", "mesa de trabalho" };
+
+    /// <summary>Lavatório: borda superior (NBR 9050: 0,78 a 0,80 m).</summary>
+    public double LavatoryMinHeight { get; set; } = U.M(0.78);
+    public double LavatoryMaxHeight { get; set; } = U.M(0.80);
+    public List<string> LavatoryKeywords { get; set; } = new() { "lavatorio", "lavatório", "lavabo de apoio", "cuba de apoio", "lavatory", "basin" };
+
+    /// <summary>Vão livre mínimo de porta (NBR 9050: 0,80 m).</summary>
+    public double MinDoorWidth { get; set; } = U.M(0.80);
+
+    /// <summary>Faixa livre ao lado da cama, em pelo menos um lado (NBR 9050: 0,90 m).</summary>
+    public double BedSideClearance { get; set; } = U.M(0.90);
+    public List<string> BedKeywords { get; set; } = new() { "cama", "bed", "beliche" };
+
+    /// <summary>Alturas de comandos (NBR 9050): tomadas 0,40–1,00 m; interruptores 0,60–1,00 m.</summary>
+    public double OutletMinHeight { get; set; } = U.M(0.40);
+    public double OutletMaxHeight { get; set; } = U.M(1.00);
+    public double SwitchMinHeight { get; set; } = U.M(0.60);
+    public double SwitchMaxHeight { get; set; } = U.M(1.00);
 
     public bool CheckDoorSwings { get; set; } = true;
     public bool CheckTurningSpace { get; set; } = true;
     public bool CheckCirculation { get; set; } = true;
     public bool CheckApproach { get; set; } = true;
     public bool CheckHeights { get; set; } = true;
+    public bool CheckDoorWidths { get; set; } = true;
+    public bool CheckBeds { get; set; } = true;
+    public bool CheckControls { get; set; } = true;
 }
+
+/// <summary>Comando elétrico (tomada ou interruptor) com a altura acima do piso acabado.</summary>
+public sealed record ControlPoint(long Id, string Name, bool IsSwitch, double HeightAboveFloor);
 
 public sealed class ErgonomicIssue
 {
@@ -200,6 +231,109 @@ public static class ErgonomicChecker
                     Location = c.Outline.Centroid,
                 });
             }
+        }
+        return issues;
+    }
+
+    /// <summary>Lavatórios: borda superior dentro da faixa de referência.</summary>
+    public static List<ErgonomicIssue> CheckLavatories(IReadOnlyList<Footprint> lavatories, double floorZ, ErgonomicRules r)
+    {
+        var issues = new List<ErgonomicIssue>();
+        foreach (var c in lavatories)
+        {
+            var h = c.TopZ - floorZ;
+            if (h < r.LavatoryMinHeight - 1e-6 || h > r.LavatoryMaxHeight + 1e-6)
+                issues.Add(new ErgonomicIssue
+                {
+                    Kind = Loc.T("Lavatório", "Lavatory"),
+                    Message = Loc.F("\"{0}\": borda superior a {1} do piso (referência {2} a {3}).",
+                        "\"{0}\": top edge {1} above floor (reference {2} to {3}).",
+                        c.Name, U.FormatMm(h), U.FormatMm(r.LavatoryMinHeight), U.FormatMm(r.LavatoryMaxHeight)),
+                    ElementIds = { c.Id },
+                    Location = c.Outline.Centroid,
+                });
+        }
+        return issues;
+    }
+
+    /// <summary>Portas com largura menor que o vão livre de referência.</summary>
+    public static List<ErgonomicIssue> CheckDoorWidths(IReadOnlyList<(long Id, string Name, double Width, Vec2 Location)> doors, ErgonomicRules r)
+    {
+        var issues = new List<ErgonomicIssue>();
+        foreach (var d in doors)
+        {
+            if (d.Width <= 0 || d.Width >= r.MinDoorWidth - 1e-6) continue;
+            issues.Add(new ErgonomicIssue
+            {
+                Kind = Loc.T("Porta", "Door"),
+                Message = Loc.F("Porta \"{0}\" com {1} de largura (vão livre de referência: {2}).",
+                    "Door \"{0}\" is {1} wide (reference clear width: {2}).", d.Name, U.FormatMm(d.Width), U.FormatMm(r.MinDoorWidth)),
+                ElementIds = { d.Id },
+                Location = d.Location,
+            });
+        }
+        return issues;
+    }
+
+    /// <summary>
+    /// Camas: faixa livre (largura de referência × comprimento da cama) em pelo menos um dos lados longos,
+    /// dentro do ambiente e sem outros móveis.
+    /// </summary>
+    public static List<ErgonomicIssue> CheckBeds(string roomName, Region2 room, IReadOnlyList<Footprint> items, IReadOnlyList<Footprint> beds, ErgonomicRules r)
+    {
+        var issues = new List<ErgonomicIssue>();
+        foreach (var b in beds)
+        {
+            var f = b.Facing.Normalized();
+            var c = b.Outline.Centroid;
+            var along = b.Outline.Max(p => (p - c).Dot(f)) - b.Outline.Min(p => (p - c).Dot(f));
+            var across = b.Outline.Max(p => (p - c).Dot(f.Perp)) - b.Outline.Min(p => (p - c).Dot(f.Perp));
+            // lados longos: perpendiculares à direção mais longa da cama
+            var sideDir = along >= across ? f.Perp : f;
+            var length = Math.Max(along, across);
+            Polygon2? best = null;
+            foreach (var dir in new[] { sideDir, -sideDir })
+            {
+                var strip = PolygonOps.FrontRectangle(b.Outline, dir, length, r.BedSideClearance);
+                var inside = room.IntersectionArea(strip) >= strip.Area * 0.97;
+                var blocked = items.Any(o => o.Id != b.Id && PolygonOps.Intersects(o.Outline, strip));
+                if (inside && !blocked)
+                {
+                    best = strip;
+                    break;
+                }
+                best ??= strip;
+            }
+            var ok = best != null && room.IntersectionArea(best) >= best.Area * 0.97 && !items.Any(o => o.Id != b.Id && PolygonOps.Intersects(o.Outline, best));
+            if (!ok)
+                issues.Add(new ErgonomicIssue
+                {
+                    Kind = Loc.T("Cama", "Bed"),
+                    Message = Loc.F("{0}: \"{1}\" não tem faixa livre de {2} em nenhum dos lados.",
+                        "{0}: \"{1}\" has no {2} free strip on either side.", roomName, b.Name, U.FormatMm(r.BedSideClearance)),
+                    ElementIds = { b.Id },
+                    Zone = best,
+                    Location = c,
+                });
+        }
+        return issues;
+    }
+
+    /// <summary>Tomadas e interruptores fora da faixa de altura de referência.</summary>
+    public static List<ErgonomicIssue> CheckControls(IReadOnlyList<ControlPoint> points, ErgonomicRules r)
+    {
+        var issues = new List<ErgonomicIssue>();
+        foreach (var p in points)
+        {
+            var (min, max) = p.IsSwitch ? (r.SwitchMinHeight, r.SwitchMaxHeight) : (r.OutletMinHeight, r.OutletMaxHeight);
+            if (p.HeightAboveFloor >= min - 1e-6 && p.HeightAboveFloor <= max + 1e-6) continue;
+            issues.Add(new ErgonomicIssue
+            {
+                Kind = p.IsSwitch ? Loc.T("Interruptor", "Switch") : Loc.T("Tomada", "Outlet"),
+                Message = Loc.F("\"{0}\" a {1} do piso (referência {2} a {3}).", "\"{0}\" at {1} above floor (reference {2} to {3}).",
+                    p.Name, U.FormatMm(p.HeightAboveFloor), U.FormatMm(min), U.FormatMm(max)),
+                ElementIds = { p.Id },
+            });
         }
         return issues;
     }

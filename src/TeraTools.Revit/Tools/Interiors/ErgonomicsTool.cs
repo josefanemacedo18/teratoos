@@ -18,14 +18,11 @@ namespace TeraTools.Revit.Tools.Interiors;
 public sealed class ErgoOptions : IValidatableOptions
 {
     [Opt("Nome do conjunto de regras", "Rule set name", Group = "Referência|Reference")]
-    public string RuleName { get; set; } = "Referência (editável)";
+    public string RuleName { get; set; } = ErgonomicRules.DefaultName;
 
     [Opt("Nota de referência (vai para o relatório)", "Reference note (goes to the report)", Group = "Referência|Reference", Kind = OptKind.MultiLine,
         Tip = "Indique a norma e a versão que você adotou e quem validou.|State the standard and version you adopted and who validated it.")]
-    public List<string> Note { get; set; } = new()
-    {
-        "Valores de referência editáveis: confirme com a norma vigente aplicável ao projeto (ex.: ABNT NBR 9050) e com o profissional responsável.",
-    };
+    public List<string> Note { get; set; } = new() { ErgonomicRules.DefaultNote };
 
     [Opt("Verificar passagens entre móveis e paredes", "Check passages between items and walls", Group = "Circulação|Circulation")]
     public bool Circulation { get; set; } = true;
@@ -61,6 +58,13 @@ public sealed class ErgoOptions : IValidatableOptions
     [Opt("Verificar abertura de portas", "Check door swings", Group = "Portas|Doors")]
     public bool DoorSwings { get; set; } = true;
 
+    [Opt("Largura mínima de porta (vão livre)", "Minimum door clear width", Kind = OptKind.Length, Min = 0, Group = "Portas|Doors",
+        Tip = "NBR 9050: vão livre ≥ 0,80 m. O plugin compara com a largura nominal da folha.|Compared with the nominal leaf width.")]
+    public double MinDoorWidth { get; set; } = U.M(0.80);
+
+    [Opt("Verificar largura das portas", "Check door widths", Group = "Portas|Doors")]
+    public bool DoorWidths { get; set; } = true;
+
     [Opt("Verificar alturas de bancadas", "Check counter heights", Group = "Alturas|Heights")]
     public bool Heights { get; set; } = true;
 
@@ -71,7 +75,40 @@ public sealed class ErgoOptions : IValidatableOptions
     public double CounterMax { get; set; } = U.M(0.85);
 
     [Opt("Palavras que identificam bancadas", "Words identifying counters", Kind = OptKind.MultiLine, Group = "Alturas|Heights", VisibleIf = "Heights")]
-    public List<string> CounterKeywords { get; set; } = new() { "bancada", "balcão", "balcao", "counter", "lavatório", "lavatorio", "cuba" };
+    public List<string> CounterKeywords { get; set; } = new() { "bancada", "balcão", "balcao", "counter", "mesa de trabalho" };
+
+    [Opt("Lavatório: borda superior mínima", "Lavatory: minimum top edge", Kind = OptKind.Length, Group = "Alturas|Heights", VisibleIf = "Heights")]
+    public double LavatoryMin { get; set; } = U.M(0.78);
+
+    [Opt("Lavatório: borda superior máxima", "Lavatory: maximum top edge", Kind = OptKind.Length, Group = "Alturas|Heights", VisibleIf = "Heights")]
+    public double LavatoryMax { get; set; } = U.M(0.80);
+
+    [Opt("Palavras que identificam lavatórios", "Words identifying lavatories", Kind = OptKind.MultiLine, Group = "Alturas|Heights", VisibleIf = "Heights")]
+    public List<string> LavatoryKeywords { get; set; } = new() { "lavatorio", "lavatório", "cuba de apoio", "lavatory", "basin" };
+
+    [Opt("Verificar faixa livre ao lado das camas", "Check free strip beside beds", Group = "Dormitórios|Bedrooms")]
+    public bool Beds { get; set; } = true;
+
+    [Opt("Largura da faixa livre ao lado da cama", "Free strip width beside the bed", Kind = OptKind.Length, Min = 0, Group = "Dormitórios|Bedrooms", VisibleIf = "Beds")]
+    public double BedSide { get; set; } = U.M(0.90);
+
+    [Opt("Palavras que identificam camas", "Words identifying beds", Kind = OptKind.MultiLine, Group = "Dormitórios|Bedrooms", VisibleIf = "Beds")]
+    public List<string> BedKeywords { get; set; } = new() { "cama", "bed", "beliche" };
+
+    [Opt("Verificar alturas de tomadas e interruptores", "Check outlet and switch heights", Group = "Comandos|Controls")]
+    public bool Controls { get; set; } = true;
+
+    [Opt("Tomadas: altura mínima", "Outlets: minimum height", Kind = OptKind.Length, Group = "Comandos|Controls", VisibleIf = "Controls")]
+    public double OutletMin { get; set; } = U.M(0.40);
+
+    [Opt("Tomadas: altura máxima", "Outlets: maximum height", Kind = OptKind.Length, Group = "Comandos|Controls", VisibleIf = "Controls")]
+    public double OutletMax { get; set; } = U.M(1.00);
+
+    [Opt("Interruptores: altura mínima", "Switches: minimum height", Kind = OptKind.Length, Group = "Comandos|Controls", VisibleIf = "Controls")]
+    public double SwitchMin { get; set; } = U.M(0.60);
+
+    [Opt("Interruptores: altura máxima", "Switches: maximum height", Kind = OptKind.Length, Group = "Comandos|Controls", VisibleIf = "Controls")]
+    public double SwitchMax { get; set; } = U.M(1.00);
 
     [Opt("Desenhar marcações na vista ativa (planta)", "Draw markers in the active view (plan)", Group = "Saída|Output")]
     public bool Draw { get; set; } = true;
@@ -82,6 +119,8 @@ public sealed class ErgoOptions : IValidatableOptions
     public IEnumerable<string> Validate()
     {
         if (CounterMax < CounterMin) yield return Loc.T("A altura máxima deve ser maior que a mínima.", "Maximum height must be greater than minimum.");
+        if (LavatoryMax < LavatoryMin) yield return Loc.T("Lavatório: a altura máxima deve ser maior que a mínima.", "Lavatory: maximum must exceed minimum.");
+        if (OutletMax < OutletMin || SwitchMax < SwitchMin) yield return Loc.T("Comandos: a altura máxima deve ser maior que a mínima.", "Controls: maximum must exceed minimum.");
     }
 
     public ErgonomicRules ToRules() => new()
@@ -102,12 +141,25 @@ public sealed class ErgoOptions : IValidatableOptions
         CheckApproach = Approach,
         CheckDoorSwings = DoorSwings,
         CheckHeights = Heights,
+        LavatoryMinHeight = LavatoryMin,
+        LavatoryMaxHeight = LavatoryMax,
+        LavatoryKeywords = LavatoryKeywords.Select(TextUtil.NormalizeForCompare).Where(c => c.Length > 0).ToList(),
+        MinDoorWidth = MinDoorWidth,
+        CheckDoorWidths = DoorWidths,
+        BedSideClearance = BedSide,
+        BedKeywords = BedKeywords.Select(TextUtil.NormalizeForCompare).Where(c => c.Length > 0).ToList(),
+        CheckBeds = Beds,
+        OutletMinHeight = OutletMin,
+        OutletMaxHeight = OutletMax,
+        SwitchMinHeight = SwitchMin,
+        SwitchMaxHeight = SwitchMax,
+        CheckControls = Controls,
     };
 }
 
 [Transaction(TransactionMode.Manual)]
 [Tool("ergo.check", Modules.Interiors, "Ergonomia e acessibilidade", "Ergonomics and accessibility", Order = 30, Large = true, Group = "Verificações|Checks",
-    DescPt = "Verifica passagens, área de manobra, áreas de aproximação, abertura de portas e alturas de bancadas com regras editáveis — sem declarar conformidade.",
+    DescPt = "Verifica passagens, manobra, aproximação, portas (abertura e largura), camas, bancadas, lavatórios, tomadas e interruptores com regras editáveis baseadas na NBR 9050:2020 — sem declarar conformidade.",
     DescEn = "Checks passages, turning space, approach areas, door swings and counter heights with editable rules — without declaring compliance.",
     HelpPt = "As regras são suas: ajuste os valores conforme a norma e a versão adotadas no projeto e salve como preset (pessoal ou do projeto). O relatório lista os pontos de atenção encontrados pelo modelo geométrico; ele NÃO substitui a verificação do profissional e NÃO declara conformidade.\n\nLimitações: as pegadas dos móveis são envoltórias convexas em planta; portas sem arco de abertura na planta têm a área estimada (quarto de círculo); vínculos (links) não são analisados.",
     HelpEn = "The rules are yours: adjust values to the standard and version adopted in the project and save as a preset. The report lists attention points found by the geometric model; it does NOT replace professional review and does NOT declare compliance.\n\nLimitations: furniture footprints are convex hulls in plan; doors without a swing arc in plan get an estimated (quarter-circle) area; links are not analyzed.",
@@ -186,11 +238,45 @@ public sealed class ErgonomicsCommand : ToolCommand
                 issues.AddRange(ErgonomicChecker.CheckDoorSwings(swings, items));
             }
 
+            var floorZ = (room.Level?.Elevation ?? 0) + (room.get_Parameter(BuiltInParameter.ROOM_LOWER_OFFSET)?.AsDouble() ?? 0);
+            bool Has(Footprint f, List<string> words) => words.Any(k => TextUtil.NormalizeForCompare(f.Name).Contains(k));
             if (rules.CheckHeights)
             {
-                var floorZ = (room.Level?.Elevation ?? 0) + (room.get_Parameter(BuiltInParameter.ROOM_LOWER_OFFSET)?.AsDouble() ?? 0);
-                var counters = items.Where(i => rules.CounterKeywords.Any(k => TextUtil.NormalizeForCompare(i.Name).Contains(k))).ToList();
+                var lavatories = items.Where(i => Has(i, rules.LavatoryKeywords)).ToList();
+                var counters = items.Where(i => !Has(i, rules.LavatoryKeywords) && Has(i, rules.CounterKeywords)).ToList();
                 issues.AddRange(ErgonomicChecker.CheckHeights(counters, floorZ, rules));
+                issues.AddRange(ErgonomicChecker.CheckLavatories(lavatories, floorZ, rules));
+            }
+
+            if (rules.CheckDoorWidths)
+            {
+                var roomDoors = doors.Where(d => BorderCommand.SafeRoom(d, true)?.Id == room.Id || BorderCommand.SafeRoom(d, false)?.Id == room.Id)
+                    .Select(d => (d.Id.Value, InteriorsUtil.Name(d),
+                        d.Symbol.get_Parameter(BuiltInParameter.DOOR_WIDTH)?.AsDouble() ?? d.get_Parameter(BuiltInParameter.DOOR_WIDTH)?.AsDouble()
+                        ?? d.Symbol.get_Parameter(BuiltInParameter.FAMILY_WIDTH_PARAM)?.AsDouble() ?? 0,
+                        (d.Location as LocationPoint)?.Point.ToVec2() ?? region.Outer.Centroid))
+                    .ToList();
+                issues.AddRange(ErgonomicChecker.CheckDoorWidths(roomDoors, rules));
+            }
+
+            if (rules.CheckBeds)
+            {
+                var beds = items.Where(i => Has(i, rules.BedKeywords)).ToList();
+                if (beds.Count > 0) issues.AddRange(ErgonomicChecker.CheckBeds(label, region, items, beds, rules));
+            }
+
+            if (rules.CheckControls)
+            {
+                var points = InteriorsUtil.InstancesInRoom(doc, room, new[] { BuiltInCategory.OST_ElectricalFixtures, BuiltInCategory.OST_LightingDevices })
+                    .Where(fi => fi.Location is LocationPoint)
+                    .Select(fi =>
+                    {
+                        var name = InteriorsUtil.Name(fi);
+                        var n = TextUtil.NormalizeForCompare(name);
+                        var isSwitch = fi.Category?.Id.Value == (long)BuiltInCategory.OST_LightingDevices || n.Contains("interrupt") || n.Contains("switch");
+                        return new ControlPoint(fi.Id.Value, name, isSwitch, ((LocationPoint)fi.Location).Point.Z - floorZ);
+                    }).ToList();
+                issues.AddRange(ErgonomicChecker.CheckControls(points, rules));
             }
 
             foreach (var i in issues) allIssues.Add((room, i));
