@@ -78,6 +78,8 @@ public sealed class FinishItem
     public TileLayout Layout { get; set; } = TileLayout.Grid;
     public double BondOffset { get; set; } = 0.5;
     public double RotationDeg { get; set; }
+    public double ChevronAngleDeg { get; set; } = 45;
+    public double MinPlankRatio { get; set; } = 0.4;
 
     /// <summary>Quantidade de tonalidades (1 = uniforme). Madeira e pedra costumam ter 3 a 5.</summary>
     public int Tones { get; set; } = 1;
@@ -140,6 +142,8 @@ public sealed class FinishItem
         Layout = Layout,
         BondOffset = BondOffset,
         RotationDeg = RotationDeg,
+        ChevronAngleDeg = ChevronAngleDeg,
+        MinPlankRatio = MinPlankRatio,
         LossPercent = LossPercent,
         TilesPerBox = (int)Math.Round(PiecesPerBox),
     };
@@ -201,6 +205,12 @@ public static class FinishLabels
         (TileLayout.Basketweave, "Trama"),
         (TileLayout.ModularThreeSizes, "Modular 3 tamanhos"),
         (TileLayout.ModularPythagorean, "Modular pitagórico"),
+        (TileLayout.Chevron, "Chevron"),
+        (TileLayout.Hexagon, "Hexágono"),
+        (TileLayout.OctagonDot, "Octógono com taco"),
+        (TileLayout.OpusRomano, "Opus romano"),
+        (TileLayout.PlankRandom, "Madeira aleatória"),
+        (TileLayout.Rhombus3D, "Losangos 3D"),
     };
 
     public static string Label(FinishKind v) => Kinds.FirstOrDefault(x => x.Value == v).Pt ?? v.ToString();
@@ -315,7 +325,7 @@ public sealed class FinishCatalog
     {
         "Código", "Nome", "Tipo", "Aplicação", "Fornecedor", "Linha / referência", "Cor", "Acabamento",
         "Comprimento (mm)", "Largura (mm)", "Espessura (mm)", "Junta (mm)", "Cor da junta",
-        "Paginação", "Amarração (0–1)", "Rotação (°)", "Tonalidades", "Variação de tom (%)",
+        "Paginação", "Amarração (0–1)", "Rotação (°)", "Ângulo do chevron (°)", "Menor régua (fração)", "Tonalidades", "Variação de tom (%)",
         "Perda (%)", "Preço (R$)", "Unidade do preço", "Peças por caixa", "m² por caixa",
         "Ambientes", "Observações", "Textura",
     };
@@ -327,7 +337,7 @@ public sealed class FinishCatalog
         foreach (var i in Items)
             t.AddRow(i.Code, i.Name, FinishLabels.Label(i.Kind), FinishLabels.Label(i.Use), i.Supplier, i.Line, i.ColorHex, i.Surface,
                 N(i.LengthMm), N(i.WidthMm), N(i.ThicknessMm), N(i.JointMm), i.JointColorHex,
-                FinishLabels.Label(i.Layout), N(i.BondOffset), N(i.RotationDeg), i.Tones.ToString(CultureInfo.InvariantCulture), N(i.ToneVariation),
+                FinishLabels.Label(i.Layout), N(i.BondOffset), N(i.RotationDeg), N(i.ChevronAngleDeg), N(i.MinPlankRatio), i.Tones.ToString(CultureInfo.InvariantCulture), N(i.ToneVariation),
                 N(i.LossPercent), N(i.Price), FinishLabels.Label(i.PriceUnit), N(i.PiecesPerBox), N(i.M2PerBox),
                 i.Rooms, i.Notes, i.TexturePath);
         return t;
@@ -419,6 +429,8 @@ public sealed class FinishCatalog
             }
             item.BondOffset = Num("Amarração (0–1)") ?? item.BondOffset;
             item.RotationDeg = Num("Rotação (°)") ?? item.RotationDeg;
+            item.ChevronAngleDeg = Num("Ângulo do chevron (°)") ?? item.ChevronAngleDeg;
+            item.MinPlankRatio = Num("Menor régua (fração)") ?? item.MinPlankRatio;
             if (Num("Tonalidades") is { } tones) item.Tones = (int)Math.Clamp(Math.Round(tones), 1, 9);
             item.ToneVariation = Num("Variação de tom (%)") ?? item.ToneVariation;
             item.LossPercent = Num("Perda (%)") ?? item.LossPercent;
@@ -450,7 +462,9 @@ public sealed class FinishCatalog
         {
             new FinishItem { Code = "PI-01", Name = "Porcelanato acetinado 90×90", Kind = FinishKind.Porcelain, Use = FinishUse.Floor, ColorHex = "#D9D2C5", Surface = "Acetinado", LengthMm = 900, WidthMm = 900, ThicknessMm = 10, JointMm = 2, JointColorHex = "#BDB5A8", Layout = TileLayout.Grid, LossPercent = 10, PriceUnit = PriceUnit.SquareMeter, M2PerBox = 1.62, PiecesPerBox = 2 },
             new FinishItem { Code = "PI-02", Name = "Madeira em espinha de peixe", Kind = FinishKind.WoodFloor, Use = FinishUse.Floor, ColorHex = "#A47148", Surface = "Natural", LengthMm = 600, WidthMm = 100, ThicknessMm = 15, JointMm = 0.5, Layout = TileLayout.Herringbone, Tones = 4, ToneVariation = 12, LossPercent = 15, PriceUnit = PriceUnit.SquareMeter },
-            new FinishItem { Code = "PI-03", Name = "Piso vinílico régua", Kind = FinishKind.Vinyl, Use = FinishUse.Floor, ColorHex = "#B89B7A", LengthMm = 1220, WidthMm = 180, ThicknessMm = 3, JointMm = 0.5, Layout = TileLayout.RunningBond, BondOffset = 0.33, Tones = 3, ToneVariation = 8, LossPercent = 8 },
+            new FinishItem { Code = "PI-05", Name = "Carvalho em chevron 45°", Kind = FinishKind.WoodFloor, Use = FinishUse.Floor, ColorHex = "#C49A6C", Surface = "Natural fosco", LengthMm = 600, WidthMm = 120, ThicknessMm = 15, JointMm = 0.5, Layout = TileLayout.Chevron, ChevronAngleDeg = 45, Tones = 4, ToneVariation = 10, LossPercent = 15, PriceUnit = PriceUnit.SquareMeter },
+            new FinishItem { Code = "PI-06", Name = "Ladrilho hexagonal 20 cm", Kind = FinishKind.Ceramic, Use = FinishUse.Floor, ColorHex = "#8FA7A0", Surface = "Fosco", LengthMm = 200, WidthMm = 200, ThicknessMm = 8, JointMm = 3, JointColorHex = "#E8E4DC", Layout = TileLayout.Hexagon, Tones = 2, ToneVariation = 6, LossPercent = 12 },
+            new FinishItem { Code = "PI-03", Name = "Piso vinílico régua", Kind = FinishKind.Vinyl, Use = FinishUse.Floor, ColorHex = "#B89B7A", LengthMm = 1220, WidthMm = 180, ThicknessMm = 3, JointMm = 0.5, Layout = TileLayout.PlankRandom, MinPlankRatio = 0.4, Tones = 3, ToneVariation = 8, LossPercent = 8 },
             new FinishItem { Code = "PI-04", Name = "Mármore travertino", Kind = FinishKind.NaturalStone, Use = FinishUse.Floor, ColorHex = "#E4D8C4", Surface = "Levigado", LengthMm = 600, WidthMm = 400, ThicknessMm = 20, JointMm = 1, Layout = TileLayout.RunningBond, BondOffset = 0.5, Tones = 3, ToneVariation = 6, LossPercent = 12 },
             new FinishItem { Code = "RO-01", Name = "Rodapé poliestireno branco 7 cm", Kind = FinishKind.Baseboard, Use = FinishUse.Baseboard, ColorHex = "#F2F2F0", WidthMm = 70, ThicknessMm = 15, LossPercent = 5, PriceUnit = PriceUnit.Meter },
             new FinishItem { Code = "PA-01", Name = "Pintura acrílica fosca branco gelo", Kind = FinishKind.Paint, Use = FinishUse.Wall, ColorHex = "#EEEDE7", Surface = "Fosco", LossPercent = 5, PriceUnit = PriceUnit.SquareMeter },

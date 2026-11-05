@@ -352,11 +352,23 @@ public class TileOptions
     [Opt("Junta", "Joint", Group = "Peça|Tile", Kind = OptKind.Length, Min = 0)]
     public double Joint { get; set; } = U.Mm(2);
 
-    [Opt("Paginação", "Layout", Group = "Paginação|Layout")]
+    [Opt("Paginação", "Layout", Group = "Paginação|Layout",
+        Tip = "Hexágono, octógono e losangos 3D usam o comprimento como tamanho da peça (ponta a ponta / faces / lado). Opus romano usa a largura como unidade do módulo.|Hexagon, octagon and 3D rhombus use the length as piece size. Opus romano uses the width as module unit.")]
     public TileLayout Layout { get; set; } = TileLayout.Grid;
 
-    [Opt("Deslocamento da amarração (0–1)", "Bond offset (0–1)", Group = "Paginação|Layout", Min = 0, Max = 1, VisibleIf = "Layout=RunningBond")]
+    [Opt("Deslocamento da amarração (0–1)", "Bond offset (0–1)", Group = "Paginação|Layout", Min = 0, Max = 1, VisibleIf = "Layout=RunningBond",
+        Tip = "0,5 = meia peça; 0,33 = um terço (escalonada).|0.5 = half; 0.33 = one third.")]
     public double BondOffset { get; set; } = 0.5;
+
+    [Opt("Ângulo do chevron", "Chevron angle", Group = "Paginação|Layout", Kind = OptKind.Angle, Min = 15, Max = 75, VisibleIf = "Layout=Chevron")]
+    public double ChevronAngle { get; set; } = 45;
+
+    [Opt("Menor régua (fração do comprimento)", "Shortest plank (fraction of length)", Group = "Paginação|Layout", Min = 0.2, Max = 1, VisibleIf = "Layout=PlankRandom")]
+    public double MinPlankRatio { get; set; } = 0.4;
+
+    [Opt("Variação (semente)", "Variation (seed)", Group = "Paginação|Layout", Min = 1, Max = 99999, VisibleIf = "Layout=PlankRandom",
+        Tip = "Mude o número para outra distribuição aleatória das réguas.|Change for another random distribution.")]
+    public int Seed { get; set; } = 1;
 
     [Opt("Rotação", "Rotation", Group = "Paginação|Layout", Kind = OptKind.Angle)]
     public double Rotation { get; set; }
@@ -392,6 +404,9 @@ public class TileOptions
         Joint = Joint,
         Layout = Layout,
         BondOffset = BondOffset,
+        ChevronAngleDeg = ChevronAngle,
+        MinPlankRatio = MinPlankRatio,
+        Seed = Seed,
         RotationDeg = Rotation,
         Start = Start,
         OffsetX = OffsetX,
@@ -425,6 +440,11 @@ public class TileOptions
             pm.Polygon(t.Clipped, fill, "#8A6A50", 0.5);
         }
         pm.Region(region, "#3A4552");
+        // 3D: base (cor da junta) e peças em relevo; filetes em vermelho.
+        var plane = new Frame3(Vec3.Zero, Vec3.UnitX, Vec3.UnitY, Vec3.UnitZ);
+        pm.S3.Prism(plane, region.Outer, -U.Mm(10), U.Mm(10), "#8A8F98");
+        foreach (var t in r.Tiles.Take(4000))
+            pm.S3.Prism(plane, t.Clipped, 0, U.Mm(8), slivers.Contains(t.Index) ? "#E07A6E" : t.Status == TileStatus.Full ? "#E6D2BE" : "#F4E9DE");
         pm.Info = Loc.F("{0} inteiras · {1} recortadas · {2} filetes · comprar {3} · perda {4:0.0}%",
             "{0} full · {1} cut · {2} slivers · buy {3} · waste {4:0.0}%", r.FullCount, r.CutCount, r.Slivers.Count, r.TilesToBuy, r.WastePercent);
         return pm;

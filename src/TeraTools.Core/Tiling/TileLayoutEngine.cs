@@ -23,6 +23,18 @@ public enum TileLayout
     ModularThreeSizes,
     /// <summary>Modular pitagórico (peça grande + peça pequena).</summary>
     ModularPythagorean,
+    /// <summary>Chevron: réguas com pontas em ângulo formando "V".</summary>
+    Chevron,
+    /// <summary>Hexágono (tamanho = ponta a ponta).</summary>
+    Hexagon,
+    /// <summary>Octógono com taco (losango pequeno nos cantos).</summary>
+    OctagonDot,
+    /// <summary>Opus romano / Versailles com 4 tamanhos (unidade = largura da peça).</summary>
+    OpusRomano,
+    /// <summary>Madeira em réguas com comprimentos e desencontros aleatórios.</summary>
+    PlankRandom,
+    /// <summary>Losangos 3D (cubos em perspectiva).</summary>
+    Rhombus3D,
 }
 
 public enum TileStart
@@ -51,6 +63,12 @@ public sealed class TileSettings
     public double Joint { get; set; } = U.Mm(2);
     public TileLayout Layout { get; set; } = TileLayout.Grid;
     public double BondOffset { get; set; } = 0.5;
+    /// <summary>Chevron: ângulo das pontas em relação ao eixo das colunas.</summary>
+    public double ChevronAngleDeg { get; set; } = 45;
+    /// <summary>Madeira aleatória: menor régua como fração do comprimento (0,2 a 1).</summary>
+    public double MinPlankRatio { get; set; } = 0.4;
+    /// <summary>Semente dos padrões aleatórios (mesma semente = mesmo resultado).</summary>
+    public int Seed { get; set; } = 1;
     public double RotationDeg { get; set; }
     public TileStart Start { get; set; } = TileStart.Center;
     public double StartX { get; set; }
@@ -153,25 +171,35 @@ public static class TileLayoutEngine
         };
         start += new Vec2(s.OffsetX, s.OffsetY);
 
-        var rects = s.Layout switch
+        // Peças no sistema local (convexas). Os padrões poligonais são gerados sem junta, com passo
+        // "peça + junta", e depois cada peça é encolhida meia junta: a junta fica certa em qualquer formato.
+        IEnumerable<Polygon2> locals = s.Layout switch
         {
-            TileLayout.Herringbone => Herringbone(lb, start, Math.Max(L, W), Math.Min(L, W), J),
-            TileLayout.Basketweave => Basketweave(lb, start, Math.Max(L, W), Math.Min(L, W), J),
-            TileLayout.ModularThreeSizes => ThreeSizes(lb, start, Math.Max(L, W), J),
-            TileLayout.ModularPythagorean => Pythagorean(lb, start, Math.Max(L, W), Math.Min(L, W), J),
-            TileLayout.RunningBond => Grid(lb, start, L, W, J, s.BondOffset),
-            _ => Grid(lb, start, L, W, J, 0),
+            TileLayout.Herringbone => Rects(Herringbone(lb, start, Math.Max(L, W), Math.Min(L, W), J)),
+            TileLayout.Basketweave => Rects(Basketweave(lb, start, Math.Max(L, W), Math.Min(L, W), J)),
+            TileLayout.ModularThreeSizes => Rects(ThreeSizes(lb, start, Math.Max(L, W), J)),
+            TileLayout.ModularPythagorean => Rects(Pythagorean(lb, start, Math.Max(L, W), Math.Min(L, W), J)),
+            TileLayout.RunningBond => Rects(Grid(lb, start, L, W, J, s.BondOffset)),
+            TileLayout.PlankRandom => Rects(PlankRandom(lb, start, Math.Max(L, W), Math.Min(L, W), J, s.MinPlankRatio, s.Seed)),
+            TileLayout.Chevron => Shrink(Chevron(lb, start, Math.Max(L, W) + J, Math.Min(L, W) + J, s.ChevronAngleDeg), J),
+            TileLayout.Hexagon => Shrink(Hexagons(lb, start, L, J), J),
+            TileLayout.OctagonDot => Shrink(OctagonDot(lb, start, L + J), J),
+            TileLayout.OpusRomano => Shrink(OpusRomano(lb, start, Math.Min(L, W) + J), J),
+            TileLayout.Rhombus3D => Shrink(Rhombus3D(lb, start, L + J), J),
+            _ => Rects(Grid(lb, start, L, W, J, 0)),
         };
 
         var regionBounds = region.Bounds;
         var idx = 0;
-        foreach (var r in rects)
+        foreach (var local in locals)
         {
             if (idx >= hardLimit) break;
-            var corners = new[] { r.Min, new Vec2(r.MaxX, r.MinY), r.Max, new Vec2(r.MinX, r.MaxY) };
-            var poly = new Polygon2(corners.Select(ToWorld));
+            if (local.IsEmpty) continue;
+            var poly = new Polygon2(local.Select(ToWorld));
             if (!regionBounds.Intersects(poly.Bounds)) continue;
-            var full = r.Width * r.Height;
+            var lbx = local.Bounds;
+            var full = local.Area;
+            if (full <= 1e-12) continue;
             var area = region.IntersectionArea(poly);
             if (area <= full * 1e-6) continue;
             var tile = new Tile
@@ -180,16 +208,16 @@ public static class TileLayoutEngine
                 Outline = poly,
                 FullArea = full,
                 Area = Math.Min(area, full),
-                Length = Math.Max(r.Width, r.Height),
-                Width = Math.Min(r.Width, r.Height),
+                Length = Math.Max(lbx.Width, lbx.Height),
+                Width = Math.Min(lbx.Width, lbx.Height),
                 RotationRad = rot,
-                SizeKey = SizeKey(r.Width, r.Height),
+                SizeKey = SizeKey(lbx.Width, lbx.Height),
             };
             if (area >= full * (1 - 1e-6))
             {
                 tile.Status = TileStatus.Full;
                 tile.Clipped = poly;
-                tile.MinPieceSize = Math.Min(r.Width, r.Height);
+                tile.MinPieceSize = Math.Min(lbx.Width, lbx.Height);
             }
             else
             {
@@ -358,6 +386,141 @@ public static class TileLayoutEngine
                 yield return Rect2.FromSize(o.X + a - b, o.Y + a + J, b, b);
             }
         }
+    }
+
+    private static IEnumerable<Polygon2> Rects(IEnumerable<Rect2> rs) => rs.Select(r => r.ToPolygon());
+
+    /// <summary>Encolhe cada peça meia junta (peças geradas com passo "peça + junta").</summary>
+    private static IEnumerable<Polygon2> Shrink(IEnumerable<Polygon2> polys, double joint)
+    {
+        foreach (var p in polys)
+        {
+            var q = joint > 1e-9 ? p.EnsureCounterClockwise().Offset(-joint / 2) : p.EnsureCounterClockwise();
+            if (!q.IsEmpty && q.Area > 1e-10) yield return q;
+        }
+    }
+
+    /// <summary>Faixa de índices que cobre o intervalo [min, max] com passo p a partir de o (com folga).</summary>
+    private static (int A, int B) Span(double min, double max, double o, double p, int pad = 2) =>
+        ((int)Math.Floor((min - o) / p) - pad, (int)Math.Ceiling((max - o) / p) + pad);
+
+    /// <summary>Chevron: pares de réguas em "V"; colunas verticais, pontas cortadas no eixo da coluna.</summary>
+    private static IEnumerable<Polygon2> Chevron(Rect2 lb, Vec2 start, double L, double W, double angleDeg)
+    {
+        var beta = MathUtil.ToRadians(Math.Clamp(angleDeg, 15, 75));
+        var cb = Math.Cos(beta);
+        var tb = Math.Tan(beta);
+        var lh = L * cb;           // projeção horizontal da régua
+        var h = W / cb;            // altura vertical da régua
+        var rise = lh * tb;
+        var (i0, i1) = Span(lb.MinX, lb.MaxX, start.X, 2 * lh);
+        var (j0, j1) = Span(lb.MinY - rise, lb.MaxY, start.Y, h);
+        for (var i = i0; i <= i1; i++)
+        {
+            for (var j = j0; j <= j1; j++)
+            {
+                var o = start + new Vec2(i * 2 * lh, j * h);
+                yield return new Polygon2(new[] { o, o + new Vec2(lh, rise), o + new Vec2(lh, rise + h), o + new Vec2(0, h) });
+                yield return new Polygon2(new[] { o + new Vec2(lh, rise), o + new Vec2(2 * lh, 0), o + new Vec2(2 * lh, h), o + new Vec2(lh, rise + h) });
+            }
+        }
+    }
+
+    /// <summary>Hexágonos de lado reto em cima (tamanho nominal = ponta a ponta).</summary>
+    private static IEnumerable<Polygon2> Hexagons(Rect2 lb, Vec2 start, double size, double joint)
+    {
+        var r = size / 2 + joint / Math.Sqrt(3); // circunraio com a junta (passo entre faces paralelas = √3·r)
+        var dx = 1.5 * r;
+        var dy = Math.Sqrt(3) * r;
+        var (i0, i1) = Span(lb.MinX, lb.MaxX, start.X, dx);
+        var (j0, j1) = Span(lb.MinY, lb.MaxY, start.Y, dy);
+        for (var i = i0; i <= i1; i++)
+            for (var j = j0; j <= j1; j++)
+            {
+                var c = start + new Vec2(i * dx, j * dy + ((i & 1) != 0 ? dy / 2 : 0));
+                yield return Polygon2.Regular(6, r, c);
+            }
+    }
+
+    /// <summary>Octógonos (faces paralelas = passo) com taco em losango nos cantos.</summary>
+    private static IEnumerable<Polygon2> OctagonDot(Rect2 lb, Vec2 start, double pitch)
+    {
+        var circ = pitch / 2 / Math.Cos(Math.PI / 8);
+        var dot = pitch * (1 - 1 / Math.Sqrt(2)); // meia diagonal do taco
+        var (i0, i1) = Span(lb.MinX, lb.MaxX, start.X, pitch);
+        var (j0, j1) = Span(lb.MinY, lb.MaxY, start.Y, pitch);
+        for (var i = i0; i <= i1; i++)
+            for (var j = j0; j <= j1; j++)
+            {
+                var c = start + new Vec2(i * pitch, j * pitch);
+                yield return Polygon2.Regular(8, circ, c, Math.PI / 8);
+                var k = c + new Vec2(pitch / 2, pitch / 2);
+                yield return new Polygon2(new[] { k + new Vec2(dot, 0), k + new Vec2(0, dot), k - new Vec2(dot, 0), k - new Vec2(0, dot) });
+            }
+    }
+
+    /// <summary>
+    /// Opus romano com 4 tamanhos num módulo de 6 × 4 unidades: 3×2 (2 peças), 2×2, 2×1 (3 peças) e 1×1 (2 peças).
+    /// As fileiras de módulos são deslocadas meio módulo para não formar juntas contínuas.
+    /// </summary>
+    private static IEnumerable<Polygon2> OpusRomano(Rect2 lb, Vec2 start, double unit)
+    {
+        (double X, double Y, double W, double H)[] pieces =
+        {
+            (0, 0, 3, 2), (3, 0, 2, 2), (5, 0, 1, 1), (5, 1, 1, 1),
+            (0, 2, 2, 1), (0, 3, 2, 1), (2, 2, 3, 2), (5, 2, 1, 2),
+        };
+        var mw = 6 * unit;
+        var mh = 4 * unit;
+        var (j0, j1) = Span(lb.MinY, lb.MaxY, start.Y, mh);
+        for (var j = j0; j <= j1; j++)
+        {
+            var shift = (j & 1) != 0 ? 3 * unit : 0;
+            var (i0, i1) = Span(lb.MinX, lb.MaxX, start.X + shift, mw);
+            for (var i = i0; i <= i1; i++)
+            {
+                var o = start + new Vec2(shift + i * mw, j * mh);
+                foreach (var p in pieces)
+                    yield return Rect2.FromSize(o.X + p.X * unit, o.Y + p.Y * unit, p.W * unit, p.H * unit).ToPolygon();
+            }
+        }
+    }
+
+    /// <summary>Réguas de madeira com comprimentos e desencontros aleatórios (estáveis pela semente).</summary>
+    private static IEnumerable<Rect2> PlankRandom(Rect2 lb, Vec2 start, double L, double W, double J, double minRatio, int seed)
+    {
+        var minLen = L * Math.Clamp(minRatio, 0.2, 1);
+        var py = W + J;
+        var (j0, j1) = Span(lb.MinY, lb.MaxY, start.Y, py);
+        for (var j = j0; j <= j1; j++)
+        {
+            var rng = new Rng(seed * 7919 + j * 104729);
+            var x = start.X - rng.Range(0, L) - Math.Ceiling(Math.Max(0, start.X - lb.MinX) / L + 1) * (L + J);
+            while (x < lb.MaxX + L)
+            {
+                var len = rng.Range(minLen, L);
+                yield return Rect2.FromSize(x, start.Y + j * py, len, W);
+                x += len + J;
+            }
+        }
+    }
+
+    /// <summary>Losangos 3D: cada hexágono (ponta para cima) dividido em três losangos.</summary>
+    private static IEnumerable<Polygon2> Rhombus3D(Rect2 lb, Vec2 start, double side)
+    {
+        var dx = Math.Sqrt(3) * side;
+        var dy = 1.5 * side;
+        var (i0, i1) = Span(lb.MinX, lb.MaxX, start.X, dx);
+        var (j0, j1) = Span(lb.MinY, lb.MaxY, start.Y, dy);
+        Vec2 V(Vec2 c, double deg) => c + new Vec2(Math.Cos(MathUtil.ToRadians(deg)), Math.Sin(MathUtil.ToRadians(deg))) * side;
+        for (var j = j0; j <= j1; j++)
+            for (var i = i0; i <= i1; i++)
+            {
+                var c = start + new Vec2(i * dx + ((j & 1) != 0 ? dx / 2 : 0), j * dy);
+                yield return new Polygon2(new[] { c, V(c, 330), V(c, 30), V(c, 90) });
+                yield return new Polygon2(new[] { c, V(c, 90), V(c, 150), V(c, 210) });
+                yield return new Polygon2(new[] { c, V(c, 210), V(c, 270), V(c, 330) });
+            }
     }
 
     /// <summary>Eixos das juntas: arestas das peças deslocadas meia junta, mescladas quando colineares.</summary>

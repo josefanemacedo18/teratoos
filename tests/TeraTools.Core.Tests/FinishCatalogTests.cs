@@ -93,7 +93,7 @@ public class FinishCatalogTests
     public void NovoCodigoUsaOPrefixoDaAplicacao()
     {
         var c = FinishCatalog.Starter();
-        Assert.Equal("PI-05", c.NewCode(FinishUse.Floor));
+        Assert.Equal("PI-07", c.NewCode(FinishUse.Floor));
         Assert.Equal("FO-02", c.NewCode(FinishUse.Ceiling));
     }
 }

@@ -347,6 +347,12 @@ public sealed class FinishItemForm
     [Opt("Deslocamento da amarração (0–1)", "Bond offset (0–1)", Group = "Peça e paginação|Piece and layout", Min = 0, Max = 1, VisibleIf = "Layout=RunningBond")]
     public double BondOffset { get; set; } = 0.5;
 
+    [Opt("Ângulo do chevron", "Chevron angle", Group = "Peça e paginação|Piece and layout", Kind = OptKind.Angle, Min = 15, Max = 75, VisibleIf = "Layout=Chevron")]
+    public double ChevronAngle { get; set; } = 45;
+
+    [Opt("Menor régua (fração do comprimento)", "Shortest plank (fraction)", Group = "Peça e paginação|Piece and layout", Min = 0.2, Max = 1, VisibleIf = "Layout=PlankRandom")]
+    public double MinPlankRatio { get; set; } = 0.4;
+
     [Opt("Rotação", "Rotation", Group = "Peça e paginação|Piece and layout", Kind = OptKind.Angle)]
     public double Rotation { get; set; }
 
@@ -370,7 +376,7 @@ public sealed class FinishItemForm
         Code = i.Code, Name = i.Name, Kind = i.Kind, Use = i.Use, Supplier = i.Supplier, Line = i.Line, Rooms = i.Rooms, Notes = i.Notes,
         ColorHex = i.ColorHex, Surface = i.Surface, Tones = i.Tones, ToneVariation = i.ToneVariation, TexturePath = i.TexturePath,
         Length = i.Length, Width = i.Width, Thickness = i.Thickness, Joint = i.Joint, JointColorHex = i.JointColorHex,
-        Layout = i.Layout, BondOffset = i.BondOffset, Rotation = i.RotationDeg,
+        Layout = i.Layout, BondOffset = i.BondOffset, Rotation = i.RotationDeg, ChevronAngle = i.ChevronAngleDeg, MinPlankRatio = i.MinPlankRatio,
         LossPercent = i.LossPercent, Price = i.Price, PriceUnit = i.PriceUnit, PiecesPerBox = (int)Math.Round(i.PiecesPerBox), M2PerBox = i.M2PerBox,
     };
 
@@ -397,6 +403,8 @@ public sealed class FinishItemForm
         i.Layout = Layout;
         i.BondOffset = BondOffset;
         i.RotationDeg = Rotation;
+        i.ChevronAngleDeg = ChevronAngle;
+        i.MinPlankRatio = MinPlankRatio;
         i.LossPercent = LossPercent;
         i.Price = Price;
         i.PriceUnit = PriceUnit;
@@ -869,6 +877,8 @@ public sealed class FinishApplyCommand : ToolCommand
                 Layout = it.Layout,
                 BondOffset = it.BondOffset,
                 Rotation = it.RotationDeg,
+                ChevronAngle = it.ChevronAngleDeg,
+                MinPlankRatio = it.MinPlankRatio,
                 Start = o.Start == TileStart.Custom ? TileStart.Center : o.Start,
                 Optimize = o.Optimize,
                 LossPercent = it.LossPercent,

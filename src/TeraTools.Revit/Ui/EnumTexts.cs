@@ -128,7 +128,13 @@ public static class EnumTexts
             (TileLayout.Herringbone, "Espinha de peixe", "Herringbone"),
             (TileLayout.Basketweave, "Trama (cestaria)", "Basketweave"),
             (TileLayout.ModularThreeSizes, "Modular 3 tamanhos", "Modular 3 sizes"),
-            (TileLayout.ModularPythagorean, "Modular pitagórico (2 tamanhos)", "Pythagorean (2 sizes)"));
+            (TileLayout.ModularPythagorean, "Modular pitagórico (2 tamanhos)", "Pythagorean (2 sizes)"),
+            (TileLayout.Chevron, "Chevron (réguas em V)", "Chevron"),
+            (TileLayout.Hexagon, "Hexágono", "Hexagon"),
+            (TileLayout.OctagonDot, "Octógono com taco", "Octagon and dot"),
+            (TileLayout.OpusRomano, "Opus romano (4 tamanhos)", "Opus romano (4 sizes)"),
+            (TileLayout.PlankRandom, "Madeira com réguas aleatórias", "Random-length planks"),
+            (TileLayout.Rhombus3D, "Losangos 3D (cubos)", "3D rhombus (tumbling blocks)"));
         EnumLabels.Register(
             (TileStart.Corner, "Canto do ambiente", "Room corner"),
             (TileStart.Center, "Peça centralizada", "Centered tile"),
