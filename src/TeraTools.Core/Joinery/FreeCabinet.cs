@@ -176,6 +176,7 @@ public sealed class FreeDesign
     public string DrawerMaterial { get; set; } = "MDF Branco TX 15";
     public string CountertopMaterial { get; set; } = "Quartzo Branco 20";
     public string GlassMaterial { get; set; } = "Vidro incolor 4 mm";
+    public string HandleMaterial { get; set; } = "Puxador alumínio escovado";
     public bool CarcassHasGrain { get; set; }
     public bool FrontHasGrain { get; set; } = true;
 
@@ -484,27 +485,31 @@ public static class FreeBuilder
         var rects = Layout(d, warnings).ToDictionary(r => r.Id);
         m.Warnings.AddRange(warnings.Distinct());
 
-        // vãos cobertos por uma porta (do próprio vão ou de um vão acima na árvore)
-        var underDoor = new HashSet<string>();
-        void MarkDoors(FreeCell c, bool covered)
+        // vãos cobertos por uma porta (do próprio vão ou de um vão acima na árvore) e o tipo dessa porta
+        var covering = new Dictionary<string, FreeDoor>();
+        void MarkDoors(FreeCell c, FreeDoor above)
         {
-            if (covered && c.Door != FreeDoor.None)
+            if (above != FreeDoor.None && c.Door != FreeDoor.None)
             {
                 m.Warnings.Add(Loc.T("Um vão dentro de outro com porta também tinha porta; a porta interna foi ignorada.", "A space inside another with a door also had a door; the inner door was ignored."));
                 c.Door = FreeDoor.None;
             }
-            var cov = covered || c.Door != FreeDoor.None;
-            if (cov) underDoor.Add(c.Id);
-            foreach (var ch in c.Children) MarkDoors(ch, cov);
+            var kind = above != FreeDoor.None ? above : c.Door;
+            if (kind != FreeDoor.None) covering[c.Id] = kind;
+            foreach (var ch in c.Children) MarkDoors(ch, kind);
         }
         var root = d.Root.DeepClone();
-        MarkDoors(root, false);
+        MarkDoors(root, FreeDoor.None);
+        var underDoor = covering.Keys.ToHashSet();
 
-        // recuo interno quando as frentes são embutidas (portas dentro do vão)
-        double FrontInset(string id) => !d.OverlayFronts && underDoor.Contains(id) ? ft : 0;
+        // Frentes embutidas ficam DENTRO da caixa: tudo o que está atrás delas recua
+        // (a espessura da porta; nas de correr, os dois trilhos).
+        double FrontInset(string id) =>
+            d.OverlayFronts || !covering.TryGetValue(id, out var k) ? 0 : k == FreeDoor.Sliding ? 2 * ft + U.Mm(10) : ft;
 
-        void Handle(double frontWidth)
+        void Handle(double frontWidth, Board? front, HandleEdge edge)
         {
+            if (front != null) HandleGeometry.Add(m, front, d.Handle, d.HandleLength, d.HandleMaterial, edge, d.Elevation);
             switch (d.Handle)
             {
                 case HandleKind.Bar:
@@ -561,9 +566,9 @@ public static class FreeBuilder
                 {
                     var a = rects[c.Children[i].Id];
                     if (c.Split == FreeSplit.Columns)
-                        Add(PanelRole.Divider, a.X1, 0, r.Z0, t, interiorDepth, r.Height, d.CarcassMaterial, d.CarcassHasGrain, Axis.X, null, Axis.Z);
+                        Add(PanelRole.Divider, a.X1, inset, r.Z0, t, interiorDepth - inset, r.Height, d.CarcassMaterial, d.CarcassHasGrain, Axis.X, null, Axis.Z);
                     else
-                        Add(PanelRole.FixedShelf, r.X0, 0, a.Z0 - t, r.Width, interiorDepth, t, d.CarcassMaterial, d.CarcassHasGrain, Axis.Z, null, Axis.X);
+                        Add(PanelRole.FixedShelf, r.X0, inset, a.Z0 - t, r.Width, interiorDepth - inset, t, d.CarcassMaterial, d.CarcassHasGrain, Axis.Z, null, Axis.X);
                     joints += 2;
                 }
                 foreach (var ch in c.Children) Walk(ch);
@@ -594,8 +599,9 @@ public static class FreeBuilder
                 for (var k = 0; k < drawers; k++)
                 {
                     var top = fz1 - k * (fh + gap);
+                    var before = m.Boards.Count;
                     Add(PanelRole.DrawerFront, fx0, y, top - fh, fx1 - fx0, ft, fh, mat, d.FrontHasGrain, Axis.Y, null, Axis.X, Axis.X, Axis.Z, Axis.Z);
-                    Handle(fx1 - fx0);
+                    Handle(fx1 - fx0, m.Boards.Count > before ? m.Boards[^1] : null, HandleEdge.Top);
                     var zb = Math.Max(r.Z0 + U.Mm(5), top - fh + U.Mm(15));
                     var bh = Math.Max(U.Mm(60), Math.Min(fh - U.Mm(rules.DrawerBoxHeightReductionMm), r.Z1 - zb - U.Mm(10)));
                     DrawerBox(r.X0, r.X1, zb, bh, depthFrom, interiorDepth - depthFrom);
@@ -660,18 +666,20 @@ public static class FreeBuilder
                 var y = d.OverlayFronts ? -ft : 0;
                 var mat = c.Glass ? d.GlassMaterial : string.IsNullOrWhiteSpace(c.FrontMaterial) ? d.FrontMaterial : c.FrontMaterial;
                 var grain = !c.Glass && d.FrontHasGrain;
-                void Leaf(double lx, double lw, double ly, string name)
+                void Leaf(double lx, double lw, double ly, string name, HandleEdge? edge)
                 {
+                    var before = m.Boards.Count;
                     Add(PanelRole.Door, lx, ly, za, lw, ft, h, mat, grain, Axis.Y, name, c.Glass ? Array.Empty<Axis>() : new[] { Axis.X, Axis.X, Axis.Z, Axis.Z });
                     if (c.Glass) Hw(HardwareKind.GlassProfile, 1, Loc.T("perfil de alumínio para porta de vidro", "aluminium frame for glass door"), 2 * (lw + h), "m");
-                    Handle(lw);
+                    if (edge is { } e) Handle(lw, m.Boards.Count > before ? m.Boards[^1] : null, e);
                 }
                 string Hinge() => d.SoftClose ? Loc.T("caneco 35 mm com amortecimento", "35 mm cup, soft-close") : Loc.T("caneco 35 mm", "35 mm cup");
                 switch (c.Door)
                 {
                     case FreeDoor.HingedLeft:
                     case FreeDoor.HingedRight:
-                        Leaf(x0, w, y, c.Door == FreeDoor.HingedLeft ? Loc.T("Porta (abre à esquerda)", "Door (left hinged)") : Loc.T("Porta (abre à direita)", "Door (right hinged)"));
+                        Leaf(x0, w, y, c.Door == FreeDoor.HingedLeft ? Loc.T("Porta (abre à esquerda)", "Door (left hinged)") : Loc.T("Porta (abre à direita)", "Door (right hinged)"),
+                            c.Door == FreeDoor.HingedLeft ? HandleEdge.Right : HandleEdge.Left);
                         Hw(HardwareKind.Hinge, rules.HingesFor(h), Hinge());
                         if (w > U.Mm(rules.MaxSingleDoorWidthMm))
                             m.Warnings.Add(Loc.F("Porta de abrir com {0} de largura; considere duas folhas.", "Hinged door {0} wide; consider two leaves.", U.FormatMm(w)));
@@ -679,19 +687,19 @@ public static class FreeBuilder
                     case FreeDoor.HingedDouble:
                     {
                         var lw = (w - gap) / 2;
-                        Leaf(x0, lw, y, Loc.T("Porta esquerda", "Left door"));
-                        Leaf(x0 + lw + gap, lw, y, Loc.T("Porta direita", "Right door"));
+                        Leaf(x0, lw, y, Loc.T("Porta esquerda", "Left door"), HandleEdge.Right);
+                        Leaf(x0 + lw + gap, lw, y, Loc.T("Porta direita", "Right door"), HandleEdge.Left);
                         Hw(HardwareKind.Hinge, 2 * rules.HingesFor(h), Hinge());
                         if (lw < U.Mm(rules.MinDoorWidthMm)) m.Warnings.Add(Loc.F("Porta estreita ({0}).", "Narrow door ({0}).", U.FormatMm(lw)));
                         break;
                     }
                     case FreeDoor.FlipUp:
-                        Leaf(x0, w, y, Loc.T("Porta basculante (abre para cima)", "Flap door (opens up)"));
+                        Leaf(x0, w, y, Loc.T("Porta basculante (abre para cima)", "Flap door (opens up)"), HandleEdge.Bottom);
                         Hw(HardwareKind.Hinge, w > U.Mm(900) ? 3 : 2, Loc.T("dobradiça para basculante", "flap hinge"));
                         Hw(HardwareKind.Lift, 1, Loc.T("par de articuladores / pistões a gás", "pair of lift struts"));
                         break;
                     case FreeDoor.FlipDown:
-                        Leaf(x0, w, y, Loc.T("Porta escamoteável (abre para baixo)", "Drop-down door"));
+                        Leaf(x0, w, y, Loc.T("Porta escamoteável (abre para baixo)", "Drop-down door"), HandleEdge.Top);
                         Hw(HardwareKind.Hinge, w > U.Mm(900) ? 3 : 2, Loc.T("dobradiça para escamoteável", "drop-down hinge"));
                         Hw(HardwareKind.Lift, 1, Loc.T("par de braços / compassos de sustentação", "pair of stay arms"));
                         break;
@@ -701,8 +709,10 @@ public static class FreeBuilder
                         var lw = (w + (n - 1) * d.SlidingOverlap) / n;
                         for (var k = 0; k < n; k++)
                         {
-                            var ly = (k % 2 == 0) ? y : y - ft - U.Mm(5);
-                            Leaf(x0 + k * (lw - d.SlidingOverlap), lw, ly, Loc.F("Porta de correr {0}", "Sliding door {0}", k + 1));
+                            // dois trilhos: sobrepostas, a 2ª folha vai à frente; embutidas, a 2ª vai atrás (dentro da caixa)
+                            var ly = (k % 2 == 0) ? y : d.OverlayFronts ? y - ft - U.Mm(5) : y + ft + U.Mm(5);
+                            var edge = k == 0 ? HandleEdge.Left : k == n - 1 ? HandleEdge.Right : HandleEdge.Center;
+                            Leaf(x0 + k * (lw - d.SlidingOverlap), lw, ly, Loc.F("Porta de correr {0}", "Sliding door {0}", k + 1), edge);
                             Hw(HardwareKind.SlidingRoller, 2, Loc.T("roldana / carrinho", "roller"));
                         }
                         Hw(HardwareKind.SlidingTrack, 1, Loc.T("trilho superior + inferior (2 vias)", "top + bottom track (2 ways)"), w, "m");
@@ -711,8 +721,8 @@ public static class FreeBuilder
                     case FreeDoor.Bifold:
                     {
                         var lw = (w - gap) / 2;
-                        Leaf(x0, lw, y, Loc.T("Porta camarão (folha 1)", "Bifold door (leaf 1)"));
-                        Leaf(x0 + lw + gap, lw, y, Loc.T("Porta camarão (folha 2)", "Bifold door (leaf 2)"));
+                        Leaf(x0, lw, y, Loc.T("Porta camarão (folha 1)", "Bifold door (leaf 1)"), null);
+                        Leaf(x0 + lw + gap, lw, y, Loc.T("Porta camarão (folha 2)", "Bifold door (leaf 2)"), HandleEdge.Right);
                         Hw(HardwareKind.Hinge, 2 * rules.HingesFor(h), Hinge());
                         Hw(HardwareKind.BifoldKit, 1, Loc.T("kit de porta camarão (guia e pivô)", "bifold kit (guide and pivot)"));
                         break;

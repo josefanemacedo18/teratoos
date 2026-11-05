@@ -230,8 +230,11 @@ public static class CabinetBuilder
             }
         }
 
-        void HandleFor(double frontWidth)
+        void HandleFor(double frontWidth, HandleEdge edge)
         {
+            // geometria do puxador na frente recém-criada (a última peça)
+            if (m.Boards.Count > 0 && m.Boards[^1].Role is PanelRole.Door or PanelRole.DrawerFront)
+                HandleGeometry.Add(m, m.Boards[^1], s.Handle, s.HandleLength, s.HandleMaterial, edge, s.Elevation);
             switch (s.Handle)
             {
                 case HandleKind.Bar:
@@ -255,7 +258,7 @@ public static class CabinetBuilder
             foreach (var (a, b) in drawerFronts)
             {
                 Add(PanelRole.DrawerFront, col.X0, -ft, a, col.X1 - col.X0, ft, b - a, s.FrontMaterial, frontGrain, Axis.Y, Axis.X, Axis.X, Axis.Z, Axis.Z);
-                HandleFor(col.X1 - col.X0);
+                HandleFor(col.X1 - col.X0, HandleEdge.Top);
                 if (slide <= 0)
                 {
                     m.Warnings.Add(Loc.T("Profundidade insuficiente para corrediças comerciais.", "Not enough depth for standard drawer slides."));
@@ -291,7 +294,7 @@ public static class CabinetBuilder
                     var y = (d % 2 == 0) ? -ft : -2 * ft - U.Mm(5);
                     Add(PanelRole.Door, x, y, doorZone.A, dw, ft, doorH, s.FrontMaterial, frontGrain, Axis.Y, Axis.X, Axis.X, Axis.Z, Axis.Z);
                     Hw(HardwareKind.SlidingRoller, 2);
-                    HandleFor(dw);
+                    HandleFor(dw, d == 0 ? HandleEdge.Left : d == n - 1 ? HandleEdge.Right : HandleEdge.Center);
                 }
                 Hw(HardwareKind.SlidingTrack, 1, Loc.F("{0} trilhos", "{0} tracks", Math.Min(n, 2)), W, "m");
             }
@@ -313,7 +316,7 @@ public static class CabinetBuilder
                     {
                         var x = col.X0 + d * (dw + gap);
                         Add(PanelRole.Door, x, -ft, doorZone.A, dw, ft, doorH, s.FrontMaterial, frontGrain, Axis.Y, Axis.X, Axis.X, Axis.Z, Axis.Z);
-                        HandleFor(dw);
+                        HandleFor(dw, s.Doors == DoorKind.FlipUp ? HandleEdge.Bottom : n == 1 || d % 2 == 0 ? HandleEdge.Right : HandleEdge.Left);
                         if (s.Doors == DoorKind.FlipUp)
                         {
                             Hw(HardwareKind.Hinge, dw > U.Mm(900) ? 3 : 2, Loc.T("dobradiça para basculante", "flap hinge"));

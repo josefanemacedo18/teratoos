@@ -159,6 +159,7 @@ public sealed class CabinetSpec
     public string BackMaterial { get; set; } = "MDF Branco 6";
     public string DrawerMaterial { get; set; } = "MDF Branco TX 15";
     public string CountertopMaterial { get; set; } = "Quartzo Branco 20";
+    public string HandleMaterial { get; set; } = "Puxador alumínio escovado";
 
     public bool CarcassHasGrain { get; set; }
     public bool FrontHasGrain { get; set; } = true;
@@ -249,6 +250,16 @@ public sealed class Board
         (EdgeL1 ? "L1 " : "") + (EdgeL2 ? "L2 " : "") + (EdgeC1 ? "C1 " : "") + (EdgeC2 ? "C2" : "");
 }
 
+/// <summary>Acessório modelado (puxador etc.): não é chapa, não entra no plano de corte.</summary>
+public sealed class Accessory
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public HardwareKind Kind { get; set; } = HardwareKind.Handle;
+    public string Material { get; set; } = "";
+    public OrientedBox Placement { get; set; }
+}
+
 public sealed class HardwareItem
 {
     public HardwareKind Kind { get; set; }
@@ -264,6 +275,7 @@ public sealed class CabinetModel
     public CabinetSpec Spec { get; set; } = new();
     public List<Board> Boards { get; } = new();
     public List<HardwareItem> Hardware { get; } = new();
+    public List<Accessory> Accessories { get; } = new();
     public List<string> Warnings { get; } = new();
 
     public double EdgeBandLength(string? material = null) =>

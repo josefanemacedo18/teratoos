@@ -141,6 +141,9 @@ public sealed class ModuleOptions
     [Opt("Material do tampo", "Countertop material", Group = "Materiais|Materials")]
     public string CountertopMaterial { get; set; } = "Quartzo Branco 20";
 
+    [Opt("Material dos puxadores", "Handle material", Group = "Materiais|Materials")]
+    public string HandleMaterial { get; set; } = "Puxador alumínio escovado";
+
     [Opt("Forma livre leve (em vez de peças paramétricas)", "Light free form (instead of parametric pieces)", Group = "Saída|Output")]
     public bool FreeForm { get; set; }
 
@@ -160,7 +163,7 @@ public sealed class ModuleOptions
         HasCountertop = HasCountertop, CountertopThickness = CountertopThickness, CountertopOverhangFront = OverhangFront,
         CountertopOverhangBack = OverhangBack, CountertopOverhangSides = OverhangSides,
         CarcassMaterial = CarcassMaterial, CarcassHasGrain = CarcassHasGrain, FrontMaterial = FrontMaterial, FrontHasGrain = FrontHasGrain,
-        BackMaterial = BackMaterial, DrawerMaterial = DrawerMaterial, CountertopMaterial = CountertopMaterial,
+        BackMaterial = BackMaterial, DrawerMaterial = DrawerMaterial, CountertopMaterial = CountertopMaterial, HandleMaterial = HandleMaterial,
     };
 
     public static ModuleOptions FromSpec(CabinetSpec s, bool freeForm = false, bool assembly = true) => new()
@@ -175,7 +178,7 @@ public sealed class ModuleOptions
         HasCountertop = s.HasCountertop, CountertopThickness = s.CountertopThickness, OverhangFront = s.CountertopOverhangFront,
         OverhangBack = s.CountertopOverhangBack, OverhangSides = s.CountertopOverhangSides,
         CarcassMaterial = s.CarcassMaterial, CarcassHasGrain = s.CarcassHasGrain, FrontMaterial = s.FrontMaterial, FrontHasGrain = s.FrontHasGrain,
-        BackMaterial = s.BackMaterial, DrawerMaterial = s.DrawerMaterial, CountertopMaterial = s.CountertopMaterial,
+        BackMaterial = s.BackMaterial, DrawerMaterial = s.DrawerMaterial, CountertopMaterial = s.CountertopMaterial, HandleMaterial = s.HandleMaterial,
         FreeForm = freeForm, Assembly = assembly,
     };
 }
@@ -232,6 +235,9 @@ internal static class JoineryGen
 {
     public const string ToolModule = "join.module";
     public const string ToolFree = "join.free";
+
+    /// <summary>Índice inicial dos acessórios (puxadores) no registro do sistema (fora da faixa das chapas).</summary>
+    public const int AccessoryIndex = 100000;
     public const string ToolExtras = "join.extras";
     public const string RulesKey = "joinery.rules";
 
@@ -295,11 +301,19 @@ internal static class JoineryGen
         var doc = ctx.Doc;
         foreach (var w in model.Warnings.Distinct()) ctx.Report.Warn(code + ": " + w);
         var frame = mc.Frame();
+        foreach (var o in JoineryCheck.Overlaps(model).Take(40))
+            ctx.Report.Warn(code + ": " + Loc.T("sobreposição — ", "overlap — ") + o.Describe());
         var sink = new BoxSink(ctx, freeForm ? GenOutput.FreeForm : GenOutput.Parametric, BoxKind.Board, systemId, null, BuiltInCategory.OST_Casework)
         {
             Name = "TT " + code,
         };
         sink.Prepare();
+        // Puxadores e outros acessórios: blocos (TT_Bloco), fora do plano de corte.
+        var accSink = new BoxSink(ctx, freeForm ? GenOutput.FreeForm : GenOutput.Parametric, BoxKind.Block, systemId, null, BuiltInCategory.OST_Casework)
+        {
+            Name = "TT " + code + Loc.T(" — puxadores", " — handles"),
+        };
+        if (model.Accessories.Count > 0) accSink.Prepare();
         var created = new List<ElementId>();
         ctx.Modify(code, () =>
         {
@@ -320,6 +334,19 @@ internal static class JoineryGen
                 sink.Add(ToWorld(frame, b.Placement, elevation), b.Material, i, e => WriteBoard(e, b, code));
             }
             sink.Finish();
+            foreach (var mat in model.Accessories.Select(a => a.Material).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct())
+                MaterialsService.Ensure(doc, mat, ColorFor(mat), updateColor: false);
+            for (var i = 0; i < model.Accessories.Count; i++)
+            {
+                var a = model.Accessories[i];
+                accSink.Add(ToWorld(frame, a.Placement, elevation), a.Material, AccessoryIndex + i, e =>
+                {
+                    RevitGeo.Set(e, a.Name, SharedParams.Grupo);
+                    RevitGeo.Set(e, code, SharedParams.Modulo);
+                });
+            }
+            accSink.Finish();
+            sink.Created.AddRange(accSink.Created);
             ctx.RequireCreated(sink.Created.Count, "peças de marcenaria", "joinery pieces");
             GenSystem.Register(doc, systemId, toolId, record, mc, systemName);
             created.AddRange(sink.Created);
@@ -564,6 +591,15 @@ internal static class JoineryGen
             var color = fronts.Contains(b.Role) ? "#C98F5A" : b.Role == PanelRole.Back ? "#EFE9E0" : b.Role == PanelRole.Countertop ? "#BFBDB8" : b.Role == PanelRole.Plinth ? "#7A7A7A" : "#E8DFD2";
             sc.Box(new OrientedBox(new Frame3(new Vec3(o0.X, o0.Y, o0.Z + spec.Elevation), Vec3.UnitX, Vec3.UnitY, Vec3.UnitZ), p.SizeX, p.SizeY, p.SizeZ), color);
         }
+        foreach (var a in model.Accessories)
+        {
+            var p = a.Placement;
+            var o0 = p.Frame.Origin;
+            sc.Box(new OrientedBox(new Frame3(new Vec3(o0.X, o0.Y, o0.Z + spec.Elevation), Vec3.UnitX, Vec3.UnitY, Vec3.UnitZ), p.SizeX, p.SizeY, p.SizeZ), "#4A4F57");
+            pm.Polygon(Polygon2.Rectangle(new Vec2(o0.X, o0.Z + spec.Elevation), p.SizeX, p.SizeZ), "#4A4F57", "#2B2F36", 0.5);
+        }
+        var overlaps = JoineryCheck.Overlaps(model);
+        if (overlaps.Count > 0) model.Warnings.Insert(0, Loc.F("{0} sobreposição(ões): {1}", "{0} overlap(s): {1}", overlaps.Count, overlaps[0].Describe()));
         var area = model.Boards.Sum(b => b.Area * b.Quantity);
         pm.Info = Loc.F("{0} peças · {1} de chapa · {2} de fita · {3} ferragens{4}", "{0} pieces · {1} of board · {2} of edge band · {3} hardware{4}",
             model.Boards.Count, U.FormatArea(area), U.FormatM(model.EdgeBandLength()), model.Hardware.Sum(h => h.Quantity),

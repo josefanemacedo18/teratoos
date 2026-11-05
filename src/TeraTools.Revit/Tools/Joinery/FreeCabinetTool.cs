@@ -144,6 +144,9 @@ public sealed class FreeBoxForm
     [Opt("Material das portas de vidro", "Glass door material", Group = "Materiais|Materials")]
     public string GlassMaterial { get; set; } = "";
 
+    [Opt("Material dos puxadores", "Handle material", Group = "Materiais|Materials")]
+    public string HandleMaterial { get; set; } = "";
+
     [Opt("Forma livre (sem família, mais leve)", "Free form (no family, lighter)", Group = "Revit|Revit",
         Tip = "Desmarcado: cada peça é uma família TT_Chapa com parâmetros de corte (recomendado).|Unticked: each piece is a TT_Chapa family with cut parameters (recommended).")]
     public bool FreeForm { get; set; }
@@ -159,7 +162,7 @@ public sealed class FreeBoxForm
         OverhangBack = d.CountertopOverhangBack, OverhangSides = d.CountertopOverhangSides,
         CarcassMaterial = d.CarcassMaterial, CarcassHasGrain = d.CarcassHasGrain, FrontMaterial = d.FrontMaterial, FrontHasGrain = d.FrontHasGrain,
         BackMaterial = d.BackMaterial, DrawerMaterial = d.DrawerMaterial, CountertopMaterial = d.CountertopMaterial, GlassMaterial = d.GlassMaterial,
-        FreeForm = freeForm,
+        HandleMaterial = d.HandleMaterial, FreeForm = freeForm,
     };
 
     public void ApplyTo(FreeDesign d)
@@ -173,6 +176,7 @@ public sealed class FreeBoxForm
         d.CountertopOverhangBack = OverhangBack; d.CountertopOverhangSides = OverhangSides;
         d.CarcassMaterial = CarcassMaterial; d.CarcassHasGrain = CarcassHasGrain; d.FrontMaterial = FrontMaterial; d.FrontHasGrain = FrontHasGrain;
         d.BackMaterial = BackMaterial; d.DrawerMaterial = DrawerMaterial; d.CountertopMaterial = CountertopMaterial; d.GlassMaterial = GlassMaterial;
+        d.HandleMaterial = HandleMaterial;
     }
 }
 
@@ -184,6 +188,8 @@ internal sealed class FreeElevation : FrameworkElement
     public CabinetModel? Model { get; set; }
     public List<FreeCellRect> Cells { get; set; } = new();
     public string? Selected { get; set; }
+    /// <summary>Peças que se sobrepõem (desenhadas em vermelho).</summary>
+    public HashSet<string> Clashing { get; set; } = new();
     private string? _hover;
     private double _scale = 1, _ox, _oy;
 
@@ -259,6 +265,13 @@ internal sealed class FreeElevation : FrameworkElement
                     _ => Hex("#E8DFD2"),
                 };
                 dc.DrawRectangle(fill, b.Role is PanelRole.Door or PanelRole.DrawerFront ? line : thin, r);
+                if (Clashing.Contains(b.Id)) dc.DrawRectangle(Hex("#D93025", 90), new Pen(Hex("#D93025"), 1.6), r);
+            }
+            foreach (var a in Model.Accessories)
+            {
+                var o = a.Placement.Frame.Origin;
+                var r = R(o.X, o.Z, o.X + a.Placement.SizeX, o.Z + a.Placement.SizeZ);
+                dc.DrawRectangle(Clashing.Contains(a.Id) ? Hex("#D93025") : Hex("#3A3F47"), null, r);
             }
         }
 
@@ -720,6 +733,11 @@ internal sealed class FreeDesignerWindow : Window
             Msg.Warn(ex.Message, Loc.T("Marcenaria livre", "Free joinery"));
             return;
         }
+        var overlaps = JoineryCheck.Overlaps(_model);
+        if (overlaps.Count > 0 && !Msg.Confirm(Loc.F("Há {0} sobreposição(ões) entre peças (em vermelho no desenho):\n\n{1}\n\nGerar mesmo assim?",
+                "There are {0} overlap(s) (red in the drawing):\n\n{1}\n\nGenerate anyway?", overlaps.Count, string.Join("\n", overlaps.Take(8).Select(o => "• " + o.Describe()))),
+                Loc.T("Marcenaria livre", "Free joinery")))
+            return;
         if (string.IsNullOrWhiteSpace(Design.Code))
         {
             Msg.Warn(Loc.T("Informe o código do móvel em \"Caixa, base e materiais\".", "Set the code in \"Box, base and materials\"."));
@@ -745,17 +763,22 @@ internal sealed class FreeDesignerWindow : Window
             cells = new List<FreeCellRect>();
             warnings.Add(ex.Message);
         }
+        var overlaps = _model == null ? new List<JoineryOverlap>() : JoineryCheck.Overlaps(_model);
+        var clashing = overlaps.SelectMany(o => new[] { o.A, o.B }).ToHashSet();
         _elev.Design = Design;
         _elev.Model = _model;
         _elev.Cells = cells;
         _elev.Selected = Selected;
+        _elev.Clashing = clashing;
         _elev.InvalidateVisual();
-        _view3d.Scene = _model == null ? null : FreePreview.Scene(Design, _model, Selected, cells);
+        _view3d.Scene = _model == null ? null : FreePreview.Scene(Design, _model, Selected, cells, clashing);
 
         if (_model != null)
         {
             var area = _model.Boards.Sum(b => b.Area * b.Quantity);
-            var all = _model.Warnings.Concat(warnings).Distinct().ToList();
+            // sobreposições primeiro: o usuário decide se gera mesmo assim
+            var all = overlaps.Select(o => Loc.T("Sobreposição: ", "Overlap: ") + o.Describe())
+                .Concat(_model.Warnings).Concat(warnings).Distinct().ToList();
             _info.Text = Loc.F("{0} peças · {1} de chapa · {2} de fita de borda · {3} ferragens", "{0} pieces · {1} of board · {2} of edge band · {3} hardware",
                 _model.Boards.Count, U.FormatArea(area), U.FormatM(_model.EdgeBandLength()), _model.Hardware.Sum(h => h.Quantity))
                 + (all.Count > 0 ? "   ⚠ " + all[0] + (all.Count > 1 ? Loc.F(" (+{0})", " (+{0})", all.Count - 1) : "") : "");
@@ -837,7 +860,7 @@ internal static class FreePreview
         return pm;
     }
 
-    public static Scene3 Scene(FreeDesign d, CabinetModel m, string? selected, List<FreeCellRect> cells)
+    public static Scene3 Scene(FreeDesign d, CabinetModel m, string? selected, List<FreeCellRect> cells, HashSet<string>? clashing = null)
     {
         var sc = new Scene3();
         sc.Face(Frame3.World, Polygon2.Rectangle(new Vec2(-U.Mm(300), -U.Mm(700)), d.Width + U.Mm(600), d.Depth + U.Mm(1000)), "#D9D4CC", 0.25);
@@ -855,7 +878,15 @@ internal static class FreePreview
                 PanelRole.DrawerSide or PanelRole.DrawerBack or PanelRole.DrawerInnerFront or PanelRole.DrawerBottom => ("#D8CCBB", 1.0),
                 _ => ("#E8DFD2", 1.0),
             };
+            if (clashing != null && clashing.Contains(b.Id)) (color, opacity) = ("#D93025", 1.0);
             sc.Box(new OrientedBox(new Frame3(new Vec3(o.X, o.Y, o.Z + d.Elevation), Vec3.UnitX, Vec3.UnitY, Vec3.UnitZ), p.SizeX, p.SizeY, p.SizeZ), color, opacity);
+        }
+        foreach (var a in m.Accessories)
+        {
+            var p = a.Placement;
+            var o = p.Frame.Origin;
+            sc.Box(new OrientedBox(new Frame3(new Vec3(o.X, o.Y, o.Z + d.Elevation), Vec3.UnitX, Vec3.UnitY, Vec3.UnitZ), p.SizeX, p.SizeY, p.SizeZ),
+                clashing != null && clashing.Contains(a.Id) ? "#D93025" : "#4A4F57");
         }
         // vão escolhido: moldura na frente
         if (selected != null && cells.FirstOrDefault(c => c.Id == selected) is { Id: not null } s)
