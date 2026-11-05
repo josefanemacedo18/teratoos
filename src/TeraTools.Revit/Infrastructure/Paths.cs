@@ -18,6 +18,12 @@ public static class Paths
     public static string Exports => Ensure(Path.Combine(Root, "exportacoes"));
     public static string Temp => Ensure(Path.Combine(Root, "temp"));
 
+    /// <summary>Texturas usadas pelos materiais (cópia estável: não muda quando o plugin é atualizado).</summary>
+    public static string Textures => Ensure(Path.Combine(Root, "texturas"));
+
+    /// <summary>Texturas que vêm com o plugin (pasta Texturas ao lado da DLL).</summary>
+    public static string BundledTextures => Path.Combine(AddinFolder, "Texturas");
+
     /// <summary>Pasta onde está a DLL do plugin.</summary>
     public static string AddinFolder => Path.GetDirectoryName(typeof(Paths).Assembly.Location) ?? Root;
 

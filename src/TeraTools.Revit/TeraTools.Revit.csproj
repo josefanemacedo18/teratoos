@@ -39,9 +39,11 @@
     <ItemGroup>
       <TeraBinaries Include="$(OutDir)*.dll;$(OutDir)*.json;$(OutDir)*.pdb" />
       <TeraDeploy Include="$(MSBuildThisFileDirectory)..\..\deploy\*.*" />
+      <TeraTextures Include="$(MSBuildThisFileDirectory)..\..\assets\texturas\*.*" />
     </ItemGroup>
     <RemoveDir Directories="$(TeraDist)" />
     <Copy SourceFiles="@(TeraBinaries)" DestinationFolder="$(TeraDist)TeraTools\" />
+    <Copy SourceFiles="@(TeraTextures)" DestinationFolder="$(TeraDist)TeraTools\Texturas\" />
     <Copy SourceFiles="@(TeraDeploy)" DestinationFolder="$(TeraDist)" />
     <Message Importance="high" Text="Téra Tools empacotado em: $(TeraDist)" />
   </Target>
@@ -54,7 +56,11 @@
     <ItemGroup>
       <TeraDebugBinaries Include="$(OutDir)*.dll;$(OutDir)*.json;$(OutDir)*.pdb" />
     </ItemGroup>
+    <ItemGroup>
+      <TeraDebugTextures Include="$(MSBuildThisFileDirectory)..\..\assets\texturas\*.*" />
+    </ItemGroup>
     <Copy SourceFiles="@(TeraDebugBinaries)" DestinationFolder="$(TeraAddins)TeraTools\" ContinueOnError="true" />
+    <Copy SourceFiles="@(TeraDebugTextures)" DestinationFolder="$(TeraAddins)TeraTools\Texturas\" ContinueOnError="true" />
     <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\deploy\TeraTools.addin" DestinationFolder="$(TeraAddins)" ContinueOnError="true" />
   </Target>
 

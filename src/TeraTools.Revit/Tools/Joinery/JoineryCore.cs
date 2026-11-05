@@ -326,16 +326,27 @@ internal static class JoineryGen
             {
                 Log.Warn("Parâmetros de corte: " + ex.Message);
             }
-            foreach (var m in model.Boards.Select(b => b.Material).Where(m => !string.IsNullOrWhiteSpace(m)).Distinct())
-                MaterialsService.Ensure(doc, m, ColorFor(m), updateColor: false);
+            // Materiais: se o nome existir na biblioteca (ex.: "TT Madeira freijó"), entra com cor e textura.
+            var library = Materials.MatLib.Load();
+            foreach (var m in model.Boards.Select(b => b.Material).Concat(model.Accessories.Select(a => a.Material)).Where(m => !string.IsNullOrWhiteSpace(m)).Distinct())
+            {
+                var existed = Lookup.Material(doc, m) != null;
+                if (!existed && library.Find(m) is { } spec)
+                {
+                    var mat = Materials.MatLib.Ensure(doc, spec, false);
+                    Materials.MatLib.ApplyTexture(ctx, mat, spec);
+                }
+                else
+                {
+                    MaterialsService.Ensure(doc, m, ColorFor(m), updateColor: false);
+                }
+            }
             for (var i = 0; i < model.Boards.Count; i++)
             {
                 var b = model.Boards[i];
                 sink.Add(ToWorld(frame, b.Placement, elevation), b.Material, i, e => WriteBoard(e, b, code));
             }
             sink.Finish();
-            foreach (var mat in model.Accessories.Select(a => a.Material).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct())
-                MaterialsService.Ensure(doc, mat, ColorFor(mat), updateColor: false);
             for (var i = 0; i < model.Accessories.Count; i++)
             {
                 var a = model.Accessories[i];

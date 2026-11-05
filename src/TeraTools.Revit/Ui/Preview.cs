@@ -25,6 +25,13 @@ public sealed class PreviewModel
         return this;
     }
 
+    /// <summary>Forma preenchida com uma imagem repetida (textura), em escala real.</summary>
+    public PreviewModel Image(Polygon2 poly, string imagePath, double imageSize, string stroke = "#5F6B7A", double width = 0.3)
+    {
+        Shapes.Add(new PreviewShape { Points = poly.Points.ToList(), Fill = "#BFBFBF", Stroke = stroke, Width = width, ImagePath = imagePath, ImageSize = imageSize });
+        return this;
+    }
+
     public PreviewModel Outline(Polygon2 poly, string stroke = "#5F6B7A", double width = 1.5, bool dashed = false)
     {
         if (!poly.IsEmpty) Shapes.Add(new PreviewShape { Points = poly.Points.ToList(), Closed = true, Stroke = stroke, Width = width, Dashed = dashed });
@@ -56,6 +63,10 @@ public sealed class PreviewShape
     public string Stroke { get; set; } = "#5F6B7A";
     public double Width { get; set; } = 1;
     public bool Dashed { get; set; }
+
+    /// <summary>Imagem que preenche a forma (repetida), e o tamanho real que uma imagem cobre.</summary>
+    public string? ImagePath { get; set; }
+    public double ImageSize { get; set; } = 1;
 }
 
 /// <summary>Elemento WPF que desenha um <see cref="PreviewModel"/> ajustado à área disponível.</summary>
@@ -72,6 +83,31 @@ public sealed class PreviewCanvas : FrameworkElement
             _model = value;
             InvalidateVisual();
         }
+    }
+
+    private static readonly Dictionary<string, System.Windows.Media.Imaging.BitmapImage?> Images = new();
+
+    /// <summary>Imagem carregada uma vez (reduzida) para preencher formas da pré-visualização.</summary>
+    public static System.Windows.Media.Imaging.BitmapImage? LoadImage(string path, int decodeWidth = 512)
+    {
+        var key = path + "|" + decodeWidth;
+        if (Images.TryGetValue(key, out var img)) return img;
+        try
+        {
+            img = new System.Windows.Media.Imaging.BitmapImage();
+            img.BeginInit();
+            img.UriSource = new Uri(path);
+            img.DecodePixelWidth = decodeWidth;
+            img.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            img.EndInit();
+            img.Freeze();
+        }
+        catch
+        {
+            img = null;
+        }
+        Images[key] = img;
+        return img;
     }
 
     private Brush B(string hex)
@@ -125,7 +161,17 @@ public sealed class PreviewCanvas : FrameworkElement
             var pen = new Pen(B(s.Stroke), s.Width);
             if (s.Dashed) pen.DashStyle = DashStyles.Dash;
             pen.Freeze();
-            dc.DrawGeometry(s.Fill != null ? B(s.Fill) : null, pen, geo);
+            Brush? fill = s.Fill != null ? B(s.Fill) : null;
+            if (s.ImagePath != null && LoadImage(s.ImagePath) is { } img)
+            {
+                // textura em escala real, ancorada na origem do desenho
+                var size = Math.Max(1e-6, s.ImageSize) * scale;
+                var anchor = Map(new Vec2(0, s.ImageSize));
+                var ib = new ImageBrush(img) { TileMode = TileMode.Tile, ViewportUnits = BrushMappingMode.Absolute, Viewport = new Rect(anchor.X, anchor.Y, size, size), Stretch = Stretch.Fill };
+                ib.Freeze();
+                fill = ib;
+            }
+            dc.DrawGeometry(fill, pen, geo);
         }
     }
 }

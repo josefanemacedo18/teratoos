@@ -1,0 +1,9 @@
+Texturas da biblioteca de materiais do Téra Tools
+
+Origem: ambientCG (https://ambientcg.com), mapas de cor (Color) em 1K.
+Licença: CC0 1.0 Universal (domínio público) — uso livre, inclusive comercial,
+sem exigência de crédito. Créditos: ambientCG.com.
+
+As imagens foram recomprimidas (JPEG 1024 px) e renomeadas em português.
+O tamanho real de cada imagem (para a escala da textura no Revit) está
+na biblioteca de materiais do plugin (campo "Tamanho da textura").

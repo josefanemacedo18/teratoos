@@ -25,7 +25,7 @@ internal static class MatLib
     {
         try
         {
-            if (File.Exists(FilePath)) return Json.LoadOrDefault<MaterialLibrary>(FilePath);
+            if (File.Exists(FilePath)) return MergeStarter(Json.LoadOrDefault<MaterialLibrary>(FilePath));
             var shared = Services.Settings.SharedLibraryFolder;
             if (!string.IsNullOrWhiteSpace(shared) && File.Exists(Path.Combine(shared, "materiais.json")))
                 return Json.LoadOrDefault<MaterialLibrary>(Path.Combine(shared, "materiais.json"));
@@ -38,6 +38,57 @@ internal static class MatLib
     }
 
     public static void Save(MaterialLibrary lib) => Json.Save(FilePath, lib);
+
+    /// <summary>
+    /// Acrescenta à biblioteca pessoal os materiais novos da biblioteca do plugin (pelo nome), sem mexer nos
+    /// materiais que o usuário já tem ou editou. Itens antigos sem textura recebem a textura do plugin.
+    /// </summary>
+    private static MaterialLibrary MergeStarter(MaterialLibrary lib)
+    {
+        var added = 0;
+        foreach (var s in MaterialLibrary.Starter().Items)
+        {
+            var mine = lib.Find(s.Name);
+            if (mine == null)
+            {
+                lib.Items.Add(s);
+                added++;
+            }
+            else if (string.IsNullOrWhiteSpace(mine.Texture) && !string.IsNullOrWhiteSpace(s.Texture))
+            {
+                mine.Texture = s.Texture;
+                mine.TextureSizeMm = s.TextureSizeMm;
+                added++;
+            }
+        }
+        if (added > 0)
+        {
+            try { Save(lib); } catch (Exception ex) { Log.Warn("Atualizar biblioteca: " + ex.Message); }
+        }
+        return lib;
+    }
+
+    /// <summary>Aplica a textura do item (se houver), registrando falhas no relatório.</summary>
+    public static bool ApplyTexture(ToolContext ctx, Material m, MaterialSpec s)
+    {
+        if (string.IsNullOrWhiteSpace(s.Texture)) return false;
+        var path = Textures.Resolve(s.Texture);
+        if (path == null)
+        {
+            ctx.ItemFailed("Texturas não encontradas", "Textures not found", Loc.F("arquivo {0} não está na pasta de texturas", "file {0} not found", s.Texture));
+            return false;
+        }
+        try
+        {
+            Textures.Apply(ctx.Doc, m, path, U.Mm(s.TextureSizeMm > 0 ? s.TextureSizeMm : 1000));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            ctx.ItemFailed("Texturas não aplicadas", "Textures not applied", ex);
+            return false;
+        }
+    }
 
     public static Material Ensure(Document doc, MaterialSpec s, bool updateExisting)
     {
@@ -74,7 +125,7 @@ internal static class MatLib
     private static string? NullIfEmpty(string s) => string.IsNullOrWhiteSpace(s) ? null : s;
 
     public static readonly string[] CsvHeader =
-        { "Nome", "Codigo", "Categoria", "Cor", "Fabricante", "Referencia", "Acabamento", "Descricao", "Fornecedor", "Custo", "Unidade", "Uso", "Transparencia" };
+        { "Nome", "Codigo", "Categoria", "Cor", "Fabricante", "Referencia", "Acabamento", "Descricao", "Fornecedor", "Custo", "Unidade", "Uso", "Transparencia", "Textura", "Tamanho da textura (mm)" };
 
     public static TableData ToTable(MaterialLibrary lib)
     {
@@ -82,7 +133,8 @@ internal static class MatLib
         foreach (var h in CsvHeader) t.AddColumn(h);
         foreach (var s in lib.Items)
             t.AddRow(s.Name, s.Code, s.Category, s.ColorHex, s.Manufacturer, s.Reference, s.Finish, s.Description, s.Supplier,
-                s.UnitCost?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture), s.Unit, s.Use, s.Transparency.ToString());
+                s.UnitCost?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture), s.Unit, s.Use, s.Transparency.ToString(),
+                s.Texture, s.TextureSizeMm.ToString("0", System.Globalization.CultureInfo.InvariantCulture));
         return t;
     }
 
@@ -120,6 +172,8 @@ internal static class MatLib
             s.Unit = Get(r, "Unidade") ?? s.Unit;
             s.Use = Get(r, "Uso") ?? s.Use;
             if (int.TryParse(Get(r, "Transparencia"), out var tr)) s.Transparency = Math.Clamp(tr, 0, 100);
+            s.Texture = Get(r, "Textura") ?? s.Texture;
+            if (U.TryParseNumber(Get(r, "Tamanho da textura (mm)"), out var tsz) && tsz > 0) s.TextureSizeMm = tsz;
             n++;
         }
         return n;
@@ -233,7 +287,7 @@ public sealed class MaterialLibraryCommand : ToolCommand
             {
                 var items = Pick.Many(lib.Items.OrderBy(i => i.Category).ThenBy(i => i.Name), i => i.Name, ctx.Tool.Name,
                     Loc.T("Quais materiais criar/atualizar no projeto?", "Which materials to create/update in the project?"), ctx.Owner,
-                    detail: i => string.Join(" · ", new[] { i.Category, i.Manufacturer, i.Reference }.Where(x => !string.IsNullOrWhiteSpace(x))));
+                    detail: i => string.Join(" · ", new[] { i.Category, i.Use, i.Finish, string.IsNullOrWhiteSpace(i.Texture) ? null : Loc.T("com textura", "textured"), i.Manufacturer, i.Reference }.Where(x => !string.IsNullOrWhiteSpace(x))));
                 if (items.Count == 0) ctx.Cancel();
                 ctx.Modify(ctx.Tool.Name, () =>
                 {
@@ -241,6 +295,7 @@ public sealed class MaterialLibraryCommand : ToolCommand
                     {
                         var existed = Lookup.Material(doc, s.Name) != null;
                         var m = MatLib.Ensure(doc, s, o.UpdateExisting);
+                        if ((!existed || o.UpdateExisting) && MatLib.ApplyTexture(ctx, m, s)) ctx.Report.Count(Loc.T("Com textura", "With texture"));
                         if (existed) ctx.Report.Modified(); else ctx.Report.Created();
                         ctx.Report.AddResult(m.Id.Value);
                     }

@@ -92,6 +92,13 @@ internal static class FinishSync
         RevitGeo.Set(m, BuiltInParameter.ALL_MODEL_MODEL, it.Line);
         if (it.Price > 0) RevitGeo.Set(m, BuiltInParameter.ALL_MODEL_COST, it.Price);
         if (!string.IsNullOrWhiteSpace(it.Notes)) RevitGeo.Set(m, BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS, it.Notes);
+        // Textura com imagem (do usuário ou da pasta do plugin), na escala de uma peça (ou 1 m).
+        if (!string.IsNullOrWhiteSpace(it.TexturePath))
+        {
+            var img = Textures.Resolve(it.TexturePath);
+            if (img == null) throw new ToolException(Loc.F("imagem de textura não encontrada: {0}", "texture image not found: {0}", it.TexturePath));
+            Textures.Apply(doc, m, img, it.LengthMm > 0 ? it.Length : U.M(1));
+        }
         // Hachura de superfície com as juntas reais (aparece em planta e 3D).
         if (EnsurePattern(doc, it, r) is { } fpe)
         {
@@ -430,7 +437,8 @@ public sealed class FinishItemForm
         var floor = new Frame3(Vec3.Zero, Vec3.UnitX, Vec3.UnitY, Vec3.UnitZ);
         if (!it.HasPieces)
         {
-            pm.Polygon(square.Outer, colors[0], "#5F6B7A", 1);
+            if (Textures.Resolve(it.TexturePath) is { } tex) pm.Image(square.Outer, tex, U.M(1), "#5F6B7A", 1);
+            else pm.Polygon(square.Outer, colors[0], "#5F6B7A", 1);
             pm.S3.Prism(floor, square.Outer, 0, Math.Max(it.Thickness, U.Mm(5)), colors[0]);
             pm.Info = Loc.T("Sem peças: o acabamento é contínuo (pintura, cimentício, carpete em rolo...).", "No pieces: continuous finish.");
             return pm;
@@ -450,10 +458,12 @@ public sealed class FinishItemForm
         pm.Polygon(square.Outer, joint, "#5F6B7A", 1);
         pm.S3.Prism(floor, square.Outer, -U.Mm(10), U.Mm(10), joint);
         var h = Math.Max(it.Thickness, U.Mm(4));
+        var texture = Textures.Resolve(it.TexturePath);
         foreach (var t in r.Tiles.Take(4000))
         {
             var color = colors[ToneIndex(t.Index, colors.Count)];
-            pm.Polygon(t.Clipped, color, color, 0.2);
+            if (texture != null) pm.Image(t.Clipped, texture, it.Length, color, 0.2);
+            else pm.Polygon(t.Clipped, color, color, 0.2);
             pm.S3.Prism(floor, t.Clipped, 0, h, color);
         }
         pm.Info = Loc.F("Amostra de 2,40 × 2,40 m · {0} peças · {1} tonalidade(s)", "2.40 × 2.40 m sample · {0} pieces · {1} tone(s)", r.Tiles.Count, colors.Count);
@@ -578,7 +588,9 @@ internal sealed class FinishCatalogWindow : Window
         {
             var detail = FinishSync.Detail(i);
             if (q.Length > 0 && !TextUtil.NormalizeForCompare($"{i.Code} {i.Name} {detail} {i.Line}").Contains(q)) continue;
-            var swatch = UiKit.ColorSwatch(RgbColor.TryParse(i.ColorHex, out var c) ? c.Hex : "#999999", 26);
+            FrameworkElement swatch = UiKit.ColorSwatch(RgbColor.TryParse(i.ColorHex, out var c) ? c.Hex : "#999999", 26);
+            if (Textures.Resolve(i.TexturePath) is { } tex && PreviewCanvas.LoadImage(tex, 64) is { } thumb)
+                swatch = new Border { Width = 26, Height = 26, CornerRadius = new CornerRadius(3), Background = new System.Windows.Media.ImageBrush(thumb) { Stretch = System.Windows.Media.Stretch.UniformToFill } };
             swatch.Margin = new Thickness(0, 0, 10, 0);
             var row = UiKit.Row(0, swatch, UiKit.Col(0, UiKit.Text($"{i.Code} — {i.Name}", bold: true, wrap: false), UiKit.Muted(detail, 11, wrap: false)));
             row.Tag = i;
