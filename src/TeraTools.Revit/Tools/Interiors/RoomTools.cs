@@ -488,7 +488,7 @@ public sealed class RoomViewsCommand : ToolCommand
         }
         catch (Exception ex)
         {
-            Log.Debug("Recorte de elevação: " + ex.Message);
+            Log.Warn("Recorte de elevação: " + ex.Message);
         }
     }
 }

@@ -326,6 +326,44 @@ public sealed class Polygon2 : IReadOnlyList<Vec2>
         return new Polygon2(pts);
     }
 
+    /// <summary>
+    /// Contorno pronto para um esboço do Revit: nenhuma aresta menor que <paramref name="minEdge"/>
+    /// (os vértices próximos são FUNDIDOS — pular o segmento deixaria o laço aberto, e o Revit recusa),
+    /// sem vértices colineares e sem auto-interseção. Devolve nulo se a forma degenerar.
+    /// </summary>
+    public Polygon2? CleanForSketch(double minEdge)
+    {
+        var pts = new List<Vec2>(_pts.Length);
+        foreach (var p in _pts)
+            if (pts.Count == 0 || pts[^1].DistanceTo(p) >= minEdge) pts.Add(p);
+        while (pts.Count > 2 && pts[^1].DistanceTo(pts[0]) < minEdge) pts.RemoveAt(pts.Count - 1);
+        if (pts.Count < 3) return null;
+        var clean = new Polygon2(pts).Simplify(minEdge * 0.05);
+        // a remoção de colineares pode reaproximar vértices: confere de novo
+        for (var i = 0; i < clean.Count; i++)
+            if (clean[i].DistanceTo(clean[(i + 1) % clean.Count]) < minEdge) return null;
+        if (clean.Count < 3 || clean.Area < minEdge * minEdge || !clean.IsSimple()) return null;
+        return clean;
+    }
+
+    /// <summary>Verdadeiro se nenhuma aresta cruza outra (exceto as vizinhas, no vértice comum).</summary>
+    public bool IsSimple()
+    {
+        var n = _pts.Length;
+        if (n < 4) return n == 3 && Area > 0;
+        for (var i = 0; i < n; i++)
+        {
+            var a = new Segment2(_pts[i], _pts[(i + 1) % n]);
+            for (var j = i + 2; j < n; j++)
+            {
+                if (i == 0 && j == n - 1) continue; // vizinhas (fecham o laço)
+                var b = new Segment2(_pts[j], _pts[(j + 1) % n]);
+                if (a.Intersect(b, out _, out _, out _)) return false;
+            }
+        }
+        return true;
+    }
+
     public static Polygon2 Rectangle(Vec2 min, double width, double height) =>
         Rect2.FromSize(min.X, min.Y, width, height).ToPolygon();
 

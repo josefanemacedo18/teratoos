@@ -557,7 +557,7 @@ public sealed class JoineryViewsCommand : ToolCommand
             }
             catch (Exception ex)
             {
-                Log.Debug("Explodir: " + ex.Message);
+                Log.Warn("Vista explodida (deslocar peça): " + ex.Message);
             }
         }
         ctx.Report.Count(Loc.T("Vistas explodidas", "Exploded views"));
@@ -786,7 +786,7 @@ public sealed class NestingCommand : ToolCommand
             }
             catch (Exception ex)
             {
-                Log.Debug("Texto do plano de corte: " + ex.Message);
+                Log.Warn("Texto do plano de corte: " + ex.Message);
             }
         }
         var sh = layout.Sheet;

@@ -307,7 +307,7 @@ internal static class QaRunner
                 }
                 catch (Exception ex)
                 {
-                    Log.Debug("Geometria: " + ex.Message);
+                    Log.Warn("Leitura de geometria na verificação: " + ex.Message);
                 }
             }
             if (noGeom.Count > 0) report.Warn(Loc.F("{0} elemento(s) sem geometria sólida.", "{0} element(s) without solid geometry.", noGeom.Count), noGeom, Loc.T("Geometria", "Geometry"));

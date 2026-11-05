@@ -237,6 +237,34 @@ public sealed class ToolContext
             Cancel();
     }
 
+    // ------------------------------------------------------------------ Falhas por item
+
+    /// <summary>
+    /// Registra um item que o Revit recusou (agrupado no relatório, com o motivo, e gravado no log).
+    /// Use no lugar de engolir a exceção: o usuário precisa saber o que não foi feito e por quê.
+    /// </summary>
+    public void ItemFailed(string whatPt, string whatEn, Exception ex, long elementId = -1) =>
+        ItemFailed(whatPt, whatEn, ex.Message, elementId);
+
+    public void ItemFailed(string whatPt, string whatEn, string reason, long elementId = -1)
+    {
+        Report.ItemFailed(Loc.T(whatPt, whatEn), reason, elementId);
+        Log.Warn($"{Tool.Id}: {whatPt}: {reason}");
+    }
+
+    /// <summary>
+    /// Interrompe com uma mensagem clara quando nada foi criado (em vez de terminar "com sucesso" sem resultado).
+    /// A mensagem traz o primeiro motivo informado pelo Revit, se houver.
+    /// </summary>
+    public void RequireCreated(int created, string whatPt, string whatEn)
+    {
+        if (created > 0) return;
+        var reason = Report.FirstFailure;
+        throw new ToolException(reason == null
+            ? Loc.F("Nenhum item ({0}) foi criado com essas opções.", "No item ({0}) was created with these options.", Loc.T(whatPt, whatEn))
+            : Loc.F("Nenhum item ({0}) pôde ser criado. Motivo informado pelo Revit: {1}", "No item ({0}) could be created. Revit reported: {1}", Loc.T(whatPt, whatEn), reason));
+    }
+
     public void SelectResults(IEnumerable<ElementId> ids)
     {
         foreach (var id in ids) Report.AddResult(id.Value);

@@ -287,7 +287,7 @@ public sealed class BorderCommand : ToolCommand
             }
             catch (Exception ex)
             {
-                Log.Debug("Soleira: " + ex.Message);
+                ctx.ItemFailed("Soleiras", "Thresholds", ex, d.Id.Value);
             }
         }
     }
@@ -642,7 +642,7 @@ public sealed class BaseboardCommand : ToolCommand
                             }
                             catch (Exception ex)
                             {
-                                Log.Debug("Rodapé: " + ex.Message);
+                                ctx.ItemFailed("Trechos de rodapé", "Baseboard segments", ex, room.Id.Value);
                             }
                         }
                     }

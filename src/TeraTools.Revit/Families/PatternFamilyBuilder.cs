@@ -14,15 +14,29 @@ public readonly record struct PatternExtrusion(Frame3 Frame, Polygon2 Local, dou
 /// (sólidas para relevo, vazias para furos) e a insere no projeto. Os vazios recortam o hospedeiro
 /// com o corte nativo do Revit (InstanceVoidCutUtils), em qualquer forma e também em faces curvas.
 /// </summary>
+/// <remarks>
+/// Cuidados que evitam o erro "nenhuma forma pôde ser criada":
+/// • os planos de esboço são criados na transação principal — se fossem criados dentro de uma
+///   subtransação que falha, seriam apagados junto e todas as formas seguintes falhariam;
+/// • os contornos são limpos antes (vértices próximos fundidos), porque pular um segmento curto
+///   deixa o laço aberto e o Revit recusa;
+/// • as formas vão em lotes; um lote recusado é dividido ao meio até isolar só a forma com defeito.
+/// </remarks>
 public static class PatternFamilyBuilder
 {
     public const string MaterialParam = "Material";
 
+    /// <summary>Formas por extrusão (esboços grandes demais deixam o Revit lento).</summary>
+    private const int BatchSize = 150;
+
     public sealed class Result
     {
-        public FamilyInstance Instance { get; init; } = null!;
+        /// <summary>Instância da família; nula quando a família não aceitou nenhuma forma.</summary>
+        public FamilyInstance? Instance { get; init; }
         public int Created { get; init; }
         public int Failed { get; init; }
+        /// <summary>Primeiro motivo de recusa informado pelo Revit.</summary>
+        public string? FirstError { get; init; }
     }
 
     /// <summary>Monta a família, carrega e insere. Deve ser chamado FORA de transações.</summary>
@@ -39,7 +53,24 @@ public static class PatternFamilyBuilder
                            "Template \"Modelo genérico\" não encontrado. Em Geral ▸ Configurações, indique a pasta de templates de família do Revit.",
                            "\"Generic Model\" template not found. In General ▸ Settings, set the Revit family templates folder."));
         var path = Path.Combine(Paths.Temp, Core.Text.TextUtil.SafeFileName(familyName) + ".rfa");
+        var minEdge = app.ShortCurveTolerance * 2;
         int created = 0, failed = 0;
+        string? firstError = null;
+
+        // Limpa os contornos antes de abrir a família (formas degeneradas nem chegam ao Revit).
+        var clean = new List<PatternExtrusion>(items.Count);
+        foreach (var it in items)
+        {
+            if (it.Z1 - it.Z0 <= minEdge || it.Local.CleanForSketch(minEdge) is not { } poly)
+            {
+                failed++;
+                firstError ??= Loc.T("forma pequena demais ou com contorno inválido", "shape too small or with an invalid outline");
+                continue;
+            }
+            clean.Add(it with { Local = poly });
+        }
+        if (clean.Count == 0) return new Result { Instance = null, Created = 0, Failed = failed, FirstError = firstError };
+
         var fdoc = app.NewFamilyDocument(template) ?? throw new ToolException(Loc.T("Falha ao abrir o template de família.", "Failed to open the family template."));
         try
         {
@@ -55,44 +86,39 @@ public static class PatternFamilyBuilder
                     pMat = fm.get_Parameter(MaterialParam) ?? fm.AddParameter(MaterialParam, GroupTypeId.Materials, SpecTypeId.Reference.Material, false);
 
                 XYZ L(Vec3 w) => new(w.X - origin.X, w.Y - origin.Y, w.Z - origin.Z);
-                var planes = new Dictionary<string, SketchPlane>();
-                SketchPlane PlaneFor(Frame3 f)
-                {
-                    var n = f.ZAxis;
-                    var o = L(f.Origin);
-                    var key = $"{Math.Round(n.X, 6)}|{Math.Round(n.Y, 6)}|{Math.Round(n.Z, 6)}|{Math.Round(new XYZ(n.X, n.Y, n.Z).DotProduct(o), 5)}";
-                    if (!planes.TryGetValue(key, out var sp))
-                        planes[key] = sp = SketchPlane.Create(fdoc, Plane.CreateByNormalAndOrigin(new XYZ(n.X, n.Y, n.Z), o));
-                    return sp;
-                }
 
-                CurveArray? Loop(Frame3 f, Polygon2 poly)
+                // Planos de esboço: criados AQUI, na transação principal, nunca dentro de uma subtransação.
+                var planes = new Dictionary<string, SketchPlane>();
+                foreach (var it in clean)
+                {
+                    var key = FrameKey(it.Frame);
+                    if (planes.ContainsKey(key)) continue;
+                    var n = it.Frame.ZAxis;
+                    planes[key] = SketchPlane.Create(fdoc, Plane.CreateByNormalAndOrigin(new XYZ(n.X, n.Y, n.Z), L(it.Frame.Origin)));
+                }
+                fdoc.Regenerate();
+
+                CurveArray Loop(Frame3 f, Polygon2 poly)
                 {
                     var arr = new CurveArray();
-                    var pts = poly.Simplify(1e-5).Points.Select(p => L(f.ToWorld(p.X, p.Y, 0))).ToList();
-                    for (var i = 0; i < pts.Count; i++)
-                    {
-                        var a = pts[i];
-                        var b = pts[(i + 1) % pts.Count];
-                        if (a.DistanceTo(b) < app.ShortCurveTolerance * 1.5) continue;
-                        arr.Append(Line.CreateBound(a, b));
-                    }
-                    return arr.Size >= 3 ? arr : null;
+                    var pts = poly.Points.Select(p => L(f.ToWorld(p.X, p.Y, 0))).ToList();
+                    for (var i = 0; i < pts.Count; i++) arr.Append(Line.CreateBound(pts[i], pts[(i + 1) % pts.Count]));
+                    return arr;
                 }
 
-                bool Make(Frame3 f, IReadOnlyList<Polygon2> polys, double z0, double z1)
+                bool Make(IReadOnlyList<PatternExtrusion> batch)
                 {
-                    var profile = new CurveArrArray();
-                    foreach (var p in polys)
-                        if (Loop(f, p) is { } loop) profile.Append(loop);
-                    if (profile.Size == 0) return false;
+                    var f = batch[0].Frame;
+                    var sp = planes[FrameKey(f)];
                     using var st = new SubTransaction(fdoc);
                     st.Start();
                     try
                     {
-                        var ext = fdoc.FamilyCreate.NewExtrusion(!isVoid, profile, PlaneFor(f), z1);
-                        ext.StartOffset = z0;
-                        ext.EndOffset = z1;
+                        var profile = new CurveArrArray();
+                        foreach (var it in batch) profile.Append(Loop(f, it.Local));
+                        var ext = fdoc.FamilyCreate.NewExtrusion(!isVoid, profile, sp, batch[0].Z1);
+                        ext.StartOffset = batch[0].Z0;
+                        ext.EndOffset = batch[0].Z1;
                         if (pMat != null && ext.get_Parameter(BuiltInParameter.MATERIAL_ID_PARAM) is { } mp)
                             fm.AssociateElementParameterToFamilyParameter(mp, pMat);
                         fdoc.Regenerate();
@@ -102,30 +128,38 @@ public static class PatternFamilyBuilder
                     catch (Exception ex)
                     {
                         if (st.HasStarted() && !st.HasEnded()) st.RollBack();
-                        Log.Debug("Extrusão do padrão: " + ex.Message);
+                        if (batch.Count == 1) firstError ??= ex.Message;
                         return false;
                     }
                 }
 
-                // Agrupa células coplanares com a mesma espessura numa única extrusão (muito mais rápido).
-                foreach (var g in items.GroupBy(i => (FrameKey(i.Frame), Math.Round(i.Z0, 4), Math.Round(i.Z1, 4))))
+                // Lote recusado → divide ao meio até isolar a forma com defeito.
+                void Place(IReadOnlyList<PatternExtrusion> batch)
                 {
-                    var list = g.ToList();
-                    var f = list[0].Frame;
-                    if (list.Count > 1 && Make(f, list.Select(x => x.Local).ToList(), list[0].Z0, list[0].Z1))
+                    if (Make(batch))
                     {
-                        created += list.Count;
-                        continue;
+                        created += batch.Count;
+                        return;
                     }
-                    foreach (var it in list)
+                    if (batch.Count == 1)
                     {
-                        if (Make(it.Frame, new[] { it.Local }, it.Z0, it.Z1)) created++;
-                        else failed++;
+                        failed++;
+                        return;
                     }
+                    var half = batch.Count / 2;
+                    Place(batch.Take(half).ToList());
+                    Place(batch.Skip(half).ToList());
                 }
+
+                // Formas no mesmo plano e com a mesma espessura vão juntas numa extrusão (família leve).
+                foreach (var g in clean.GroupBy(i => (FrameKey(i.Frame), Math.Round(i.Z0, 4), Math.Round(i.Z1, 4))))
+                    foreach (var batch in g.Chunk(BatchSize))
+                        Place(batch);
+
                 t.Commit();
             }
-            if (created == 0) throw new ToolException(Loc.T("Nenhuma forma do padrão pôde ser criada (formas pequenas demais ou sobrepostas).", "No pattern shape could be created (shapes too small or overlapping)."));
+            // Nenhuma forma entrou na família: quem chamou decide (forma livre ou mensagem com o motivo).
+            if (created == 0) return new Result { Instance = null, Created = 0, Failed = failed, FirstError = firstError };
             fdoc.SaveAs(path, new SaveAsOptions { OverwriteExistingFile = true });
         }
         finally
@@ -146,7 +180,40 @@ public static class PatternFamilyBuilder
             inst = doc.Create.NewFamilyInstance(new XYZ(origin.X, origin.Y, origin.Z), sym, level, StructuralType.NonStructural);
         });
         try { File.Delete(path); } catch { /* temporário */ }
-        return new Result { Instance = inst!, Created = created, Failed = failed };
+        return new Result { Instance = inst, Created = created, Failed = failed, FirstError = firstError };
+    }
+
+    /// <summary>
+    /// Sólidos do padrão em relevo, sem família (forma livre), para quando a família não aceitar as formas.
+    /// Não precisa de transação: só monta a geometria, já com o material escolhido.
+    /// </summary>
+    public static List<GeometryObject> Solids(Document doc, IReadOnlyList<PatternExtrusion> items, string? materialName, out int failed, out string? firstError)
+    {
+        var opts = Shapes.Options(doc, materialName);
+        var minEdge = doc.Application.ShortCurveTolerance * 2;
+        var list = new List<GeometryObject>(items.Count);
+        failed = 0;
+        firstError = null;
+        foreach (var it in items)
+        {
+            try
+            {
+                var height = it.Z1 - it.Z0;
+                var poly = it.Local.CleanForSketch(minEdge);
+                if (poly == null || height <= minEdge)
+                    throw new InvalidOperationException(Loc.T("forma pequena demais ou com contorno inválido", "shape too small or with an invalid outline"));
+                var pts = poly.Points.Select(p => it.Frame.ToWorld(p.X, p.Y, it.Z0).ToXYZ()).ToList();
+                var loop = new CurveLoop();
+                for (var i = 0; i < pts.Count; i++) loop.Append(Line.CreateBound(pts[i], pts[(i + 1) % pts.Count]));
+                list.Add(GeometryCreationUtilities.CreateExtrusionGeometry(new List<CurveLoop> { loop }, it.Frame.ZAxis.ToXYZ(), height, opts));
+            }
+            catch (Exception ex)
+            {
+                failed++;
+                firstError ??= ex.Message;
+            }
+        }
+        return list;
     }
 
     private static string FrameKey(Frame3 f) =>
@@ -157,6 +224,6 @@ public static class PatternFamilyBuilder
     {
         var fam = FamilyFactory.FindFamily(doc, familyName);
         if (fam == null) return;
-        try { doc.Delete(fam.Id); } catch (Exception ex) { Log.Debug("Excluir família do padrão: " + ex.Message); }
+        try { doc.Delete(fam.Id); } catch (Exception ex) { Log.Warn("Excluir família do padrão: " + ex.Message); }
     }
 }

@@ -198,7 +198,7 @@ internal static class LayoutPresets
         }
         catch (Exception ex)
         {
-            Log.Debug("Presets do projeto: " + ex.Message);
+            Log.Warn("Presets do projeto: " + ex.Message);
         }
         return list;
     }

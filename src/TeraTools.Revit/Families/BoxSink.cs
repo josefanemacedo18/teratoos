@@ -75,7 +75,7 @@ public static class GenSystem
         }
         catch (Exception ex)
         {
-            Log.Debug("MarkGenerated: " + ex.Message);
+            Log.Warn("Marcar elemento gerado: " + ex.Message);
         }
         RevitGeo.Set(e, systemId, SharedParams.Sistema);
         RevitGeo.Set(e, index, SharedParams.Indice);
@@ -175,7 +175,7 @@ public sealed class BoxSink
             }
             catch (Exception ex)
             {
-                Log.Debug("Box solid: " + ex.Message);
+                _ctx.ItemFailed("Peças (forma livre)", "Pieces (free form)", ex);
             }
             return null;
         }

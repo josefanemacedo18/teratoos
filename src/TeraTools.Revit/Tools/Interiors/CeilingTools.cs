@@ -221,7 +221,7 @@ public sealed class CoveCommand : ToolCommand
                             }
                             catch (Exception ex)
                             {
-                                Log.Debug("Fechamento: " + ex.Message);
+                                ctx.ItemFailed("Fechamentos da sanca", "Cove closures", ex);
                             }
                         }
                     }

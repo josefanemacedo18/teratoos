@@ -82,6 +82,50 @@ public sealed class OperationReport
     public void Deleted(int n = 1) => Count(Loc.T("Excluídos", "Deleted"), n);
     public void Skipped(int n = 1) => Count(Loc.T("Ignorados", "Skipped"), n);
 
+    // ------------------------------------------------------------------ Itens que falharam
+
+    private readonly Dictionary<string, (int Index, int Count, string Reason, List<long> Ids)> _failures = new();
+
+    /// <summary>Quantidade total de itens que não puderam ser criados ou alterados.</summary>
+    public int FailedItems { get; private set; }
+
+    /// <summary>Primeiro motivo de falha informado (para explicar quando nada foi criado).</summary>
+    public string? FirstFailure { get; private set; }
+
+    /// <summary>
+    /// Registra um item que não pôde ser criado ou alterado. As falhas são agrupadas por tipo
+    /// ("barras", "formas"…) numa única linha de aviso com a quantidade e o primeiro motivo,
+    /// em vez de serem descartadas em silêncio.
+    /// </summary>
+    public void ItemFailed(string what, string reason, long elementId = -1) => ItemsFailed(what, 1, reason, elementId);
+
+    /// <summary>Registra <paramref name="count"/> itens do mesmo tipo que falharam pelo mesmo motivo.</summary>
+    public void ItemsFailed(string what, int count, string reason, long elementId = -1)
+    {
+        if (count <= 0) return;
+        lock (_lock)
+        {
+            reason = string.IsNullOrWhiteSpace(reason) ? Loc.T("motivo não informado", "no reason given") : reason.Trim();
+            FailedItems += count;
+            FirstFailure ??= reason;
+            if (!_failures.TryGetValue(what, out var f))
+            {
+                f = (Items.Count, 0, reason, new List<long>());
+                Items.Add(new ReportItem());
+            }
+            f.Count += count;
+            if (elementId >= 0) f.Ids.Add(elementId);
+            _failures[what] = f;
+            Items[f.Index] = new ReportItem
+            {
+                Severity = Severity.Warning,
+                Message = Loc.F("{0}: {1} não puderam ser feitos. Motivo informado pelo Revit: {2}",
+                    "{0}: {1} could not be done. Revit reported: {2}", what, f.Count, f.Reason),
+                ElementIds = f.Ids.ToList(),
+            };
+        }
+    }
+
     public void AddResult(long id) => ResultElementIds.Add(id);
     public void AddResults(IEnumerable<long> ids)
     {

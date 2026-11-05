@@ -35,7 +35,7 @@ internal sealed class CeilingFinder
             }
             catch (Exception ex)
             {
-                Log.Debug("Faces do forro: " + ex.Message);
+                Log.Warn("Faces do forro: " + ex.Message);
             }
             _items.Add((c, faces, bb));
         }

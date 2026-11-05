@@ -45,10 +45,17 @@ internal static class PlanBool
         return loops;
     }
 
+    /// <summary>Último motivo de falha informado pelo Revit (para explicar ao usuário).</summary>
+    public static string? LastError { get; private set; }
+
     /// <summary>Prisma vertical a partir de laços (achatados em Z = 0).</summary>
     public static Solid? Prism(IList<CurveLoop> loops)
     {
-        if (loops.Count == 0) return null;
+        if (loops.Count == 0)
+        {
+            LastError = Loc.T("contorno vazio ou não fechado", "empty or open outline");
+            return null;
+        }
         try
         {
             var flat = new List<CurveLoop>();
@@ -69,7 +76,8 @@ internal static class PlanBool
         }
         catch (Exception ex)
         {
-            Log.Debug("Prisma em planta: " + ex.Message);
+            LastError = ex.Message;
+            Log.Warn("Prisma em planta: " + ex.Message);
             return null;
         }
     }
@@ -104,7 +112,8 @@ internal static class PlanBool
         }
         catch (Exception ex)
         {
-            Log.Debug("Booleana em planta: " + ex.Message);
+            LastError = ex.Message;
+            Log.Warn("Booleana em planta: " + ex.Message);
             return null;
         }
     }
@@ -162,14 +171,18 @@ public sealed class FloorMergeCommand : ToolCommand
             var p = PlanBool.Prism(PlanBool.FloorLoops(doc, f));
             if (p == null)
             {
-                ctx.Report.Warn(Loc.F("Piso {0}: contorno não lido (inclinado ou complexo) — ignorado.", "Floor {0}: outline not read — skipped.", f.Id.Value), f.Id.Value);
+                ctx.ItemFailed("Pisos ignorados (contorno não lido; inclinado ou complexo)", "Skipped floors (outline not read)", PlanBool.LastError ?? "", f.Id.Value);
                 continue;
             }
             union = PlanBool.Combine(union, p, BooleanOperationsType.Union);
-            if (union == null) ToolContext.Fail("O Revit não conseguiu unir os contornos destes pisos.", "Revit could not union these floor outlines.");
+            if (union == null)
+                ToolContext.Fail($"O Revit não conseguiu unir os contornos destes pisos. Motivo: {PlanBool.LastError}",
+                    $"Revit could not union these floor outlines. Reason: {PlanBool.LastError}");
         }
         var regions = PlanBool.Regions(union, level.Elevation);
-        if (regions.Count == 0) ToolContext.Fail("Nada para unir.", "Nothing to merge.");
+        if (regions.Count == 0)
+            ToolContext.Fail($"Não foi possível obter o contorno unido. {(ctx.Report.FirstFailure ?? PlanBool.LastError)}",
+                $"Could not get the merged outline. {(ctx.Report.FirstFailure ?? PlanBool.LastError)}");
         ctx.Modify(ctx.Tool.Name, () =>
         {
             var loops = regions.SelectMany(r => r).ToList();
@@ -178,10 +191,23 @@ public sealed class FloorMergeCommand : ToolCommand
             {
                 created.Add(Floor.Create(doc, loops, typeId, level.Id));
             }
-            catch
+            catch (Exception ex)
             {
-                foreach (var r in regions) created.Add(Floor.Create(doc, r, typeId, level.Id));
+                // Regiões separadas viram pisos separados.
+                Log.Warn("Piso unido em uma peça: " + ex.Message);
+                foreach (var r in regions)
+                {
+                    try
+                    {
+                        created.Add(Floor.Create(doc, r, typeId, level.Id));
+                    }
+                    catch (Exception ex2)
+                    {
+                        ctx.ItemFailed("Regiões do piso unido", "Merged floor regions", ex2);
+                    }
+                }
             }
+            ctx.RequireCreated(created.Count, "piso unido", "merged floor");
             foreach (var nf in created)
             {
                 if (Math.Abs(offset) > 1e-9) RevitGeo.Set(nf, BuiltInParameter.FLOOR_HEIGHTABOVELEVEL_PARAM, offset);
@@ -241,15 +267,32 @@ public sealed class FloorFillerCommand : ToolCommand
         foreach (var room in rooms)
         {
             var level = room.Level;
+            if (level == null)
+            {
+                ctx.ItemFailed("Ambientes sem nível", "Rooms without level", Loc.T("ambiente sem nível", "room without level"), room.Id.Value);
+                continue;
+            }
             var roomSolid = PlanBool.Prism(PlanBool.RoomLoops(room));
-            if (level == null || roomSolid == null) continue;
+            if (roomSolid == null)
+            {
+                ctx.ItemFailed("Ambientes não analisados (contorno não lido)", "Rooms not analysed (outline not read)", PlanBool.LastError ?? "", room.Id.Value);
+                continue;
+            }
             var reg = RevitGeo.RoomRegion(room);
             Solid? gap = roomSolid;
             if (reg != null)
                 foreach (var f in FloorUtil.FloorsInRoom(doc, room, reg).Floors)
                 {
                     var fp = PlanBool.Prism(PlanBool.FloorLoops(doc, f));
-                    if (fp != null) gap = PlanBool.Combine(gap, fp, BooleanOperationsType.Difference) ?? gap;
+                    if (fp == null)
+                    {
+                        ctx.ItemFailed("Pisos não considerados (contorno não lido)", "Floors not considered (outline not read)", PlanBool.LastError ?? "", f.Id.Value);
+                        continue;
+                    }
+                    var diff = PlanBool.Combine(gap, fp, BooleanOperationsType.Difference);
+                    if (diff == null)
+                        ctx.ItemFailed("Pisos não descontados (booleana recusada)", "Floors not subtracted (boolean refused)", PlanBool.LastError ?? "", f.Id.Value);
+                    else gap = diff;
                 }
             var missing = PlanBool.AreaOf(gap);
             var roomArea = PlanBool.AreaOf(roomSolid);
@@ -260,7 +303,11 @@ public sealed class FloorFillerCommand : ToolCommand
         ctx.Report.Tables.Add(t);
         if (plan.Count == 0)
         {
-            ctx.Report.Success(Loc.T("Todos os ambientes estão totalmente cobertos por piso.", "All rooms are fully covered by floor."));
+            if (ctx.Report.FailedItems > 0)
+                ctx.Report.Warn(Loc.T("Nenhuma sobra encontrada nos ambientes analisados, mas alguns ambientes não puderam ser analisados (veja acima).",
+                    "No gap found in the analysed rooms, but some rooms could not be analysed (see above)."));
+            else
+                ctx.Report.Success(Loc.T("Todos os ambientes estão totalmente cobertos por piso.", "All rooms are fully covered by floor."));
             ctx.Report.ForceShow = true;
             return;
         }
@@ -285,10 +332,11 @@ public sealed class FloorFillerCommand : ToolCommand
                     }
                     catch (Exception ex)
                     {
-                        ctx.Report.Warn(FloorUtil.RoomLabel(room) + ": " + Shapes.FailText(ex), room.Id.Value);
+                        ctx.ItemFailed("Pisos de preenchimento", "Fill floors", Shapes.FailText(ex), room.Id.Value);
                     }
                 }
             }
+            ctx.RequireCreated(ctx.Report.GetCount(Loc.T("Criados", "Created")), "piso de preenchimento", "fill floor");
         });
     }
 }

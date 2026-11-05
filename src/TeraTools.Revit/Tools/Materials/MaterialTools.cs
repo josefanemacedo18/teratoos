@@ -133,7 +133,7 @@ internal static class MatLib
         }
         catch (Exception ex)
         {
-            Log.Debug("Abrir pasta: " + ex.Message);
+            Log.Warn("Abrir pasta: " + ex.Message);
         }
     }
 

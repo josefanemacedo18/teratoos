@@ -283,28 +283,50 @@ public sealed class PatternCommand : ToolCommand
         var items = Extrusions(o, s, cells, HostThickness(doc, c));
         var near = s.FrameAt(s.Domain.Bounds.Center).Origin;
         var res = PatternFamilyBuilder.Build(ctx, FamilyName(systemId), items, isVoid, near);
+        var created = res.Created;
+        var failed = res.Failed;
+        var reason = res.FirstError;
+        List<GeometryObject>? freeForm = null;
+        if (res.Instance == null)
+        {
+            // Vazios precisam de família (forma livre não recorta). O relevo vira forma livre com o mesmo desenho.
+            if (isVoid)
+                ToolContext.Fail(
+                    $"Nenhum furo do padrão pôde ser criado. Motivo informado pelo Revit: {reason ?? "não informado"}. Tente uma célula maior ou uma proporção de abertura menor.",
+                    $"No pattern hole could be created. Revit reported: {reason ?? "not given"}. Try a larger cell or a smaller opening ratio.");
+            freeForm = PatternFamilyBuilder.Solids(doc, items, o.Material, out failed, out var solidError);
+            reason = solidError ?? reason;
+            if (freeForm.Count == 0)
+                ToolContext.Fail(
+                    $"Nenhuma forma do padrão pôde ser criada. Motivo informado pelo Revit: {reason ?? "não informado"}.",
+                    $"No pattern shape could be created. Revit reported: {reason ?? "not given"}.");
+            created = freeForm.Count;
+            ctx.Report.Info(Loc.T("A família do padrão não aceitou as formas; o relevo foi criado como forma livre (edite por Geradores ▸ Editar sistema gerado).",
+                "The pattern family rejected the shapes; the relief was created as free form (edit via Generators ▸ Edit generated system)."));
+        }
         ctx.Modify(ctx.Tool.Name, () =>
         {
             GenSystem.BindParams(doc, ctx.Report);
-            var inst = res.Instance;
-            GenSystem.Mark(inst, systemId, ToolId, 0);
-            RevitGeo.Set(inst, o.Pattern.ToString(), SharedParams.Codigo);
+            Element el = res.Instance != null
+                ? res.Instance
+                : Shapes.Create(doc, freeForm!, BuiltInCategory.OST_GenericModel, FamilyName(systemId));
+            GenSystem.Mark(el, systemId, ToolId, 0);
+            RevitGeo.Set(el, o.Pattern.ToString(), SharedParams.Codigo);
             if (isVoid)
             {
-                InstanceVoidCutUtils.AddInstanceVoidCut(doc, host!, inst);
+                InstanceVoidCutUtils.AddInstanceVoidCut(doc, host!, (FamilyInstance)el);
                 ctx.Report.AddResult(host!.Id.Value);
             }
-            else if (!string.IsNullOrWhiteSpace(o.Material) && Lookup.Material(doc, o.Material) is { } mat)
+            else if (res.Instance != null && !string.IsNullOrWhiteSpace(o.Material) && Lookup.Material(doc, o.Material) is { } mat)
             {
-                inst.Symbol.LookupParameter(PatternFamilyBuilder.MaterialParam)?.Set(mat.Id);
+                res.Instance.Symbol.LookupParameter(PatternFamilyBuilder.MaterialParam)?.Set(mat.Id);
             }
             GenSystem.Register(doc, systemId, ToolId, o, c, Loc.T("Padrão ", "Pattern ") + o.Pattern);
             ctx.Report.Created();
-            ctx.Report.AddResult(inst.Id.Value);
+            ctx.Report.AddResult(el.Id.Value);
         });
-        ctx.Report.Count(Loc.T("Formas", "Shapes"), res.Created);
-        if (res.Failed > 0)
-            ctx.Report.Warn(Loc.F("{0} forma(s) não puderam ser criadas (pequenas demais ou degeneradas) e foram ignoradas.", "{0} shape(s) could not be created and were skipped.", res.Failed));
+        ctx.Report.Count(Loc.T("Formas", "Shapes"), created);
+        ctx.Report.ItemsFailed(Loc.T("Formas do padrão", "Pattern shapes"), failed, reason ?? Loc.T("forma pequena demais", "shape too small"));
         ctx.Report.Info(Loc.T("Para alterar o padrão: Geradores ▸ Editar sistema gerado.", "To change the pattern: Generators ▸ Edit generated system."));
     }
 }

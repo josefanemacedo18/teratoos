@@ -44,7 +44,7 @@ internal static class DocUtil
         }
         catch (Exception ex)
         {
-            Log.Debug("Recorte: " + ex.Message);
+            Log.Warn("Recorte de vista: " + ex.Message);
         }
     }
 

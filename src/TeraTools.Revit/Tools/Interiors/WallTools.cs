@@ -96,7 +96,7 @@ public static class RoomWallPainter
                     }
                     catch (Exception ex)
                     {
-                        Log.Debug("Pintura: " + ex.Message);
+                        report.ItemFailed(Loc.T("Faces de parede (pintura)", "Wall faces (paint)"), ex.Message, wall.Id.Value);
                     }
                 }
             }
@@ -366,7 +366,7 @@ public sealed class WallFinishCommand : ToolCommand
                         }
                         catch (Exception ex)
                         {
-                            Log.Debug("Revestimento: " + ex.Message);
+                            ctx.ItemFailed("Trechos de revestimento", "Finish segments", ex, host.Id.Value);
                         }
                     }
                 }

@@ -237,7 +237,7 @@ internal static class InteriorsUtil
             }
             catch (Exception ex)
             {
-                Log.Debug("Arcos da porta: " + ex.Message);
+                Log.Warn("Arcos da porta: " + ex.Message);
             }
         }
         if (list.Count > 0) return list;
@@ -332,7 +332,7 @@ internal static class InteriorsUtil
         }
         catch (Exception ex)
         {
-            Log.Debug("Região preenchida: " + ex.Message);
+            Log.Warn("Região preenchida: " + ex.Message);
             return null;
         }
     }
