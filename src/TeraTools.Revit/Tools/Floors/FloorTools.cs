@@ -458,6 +458,12 @@ public enum PagingHost
     [Text("Forros", "Ceilings")] Ceilings,
 }
 
+public enum PagingOutput
+{
+    [Text("Partes do Revit (forma livre se o Revit recusar)", "Revit parts (free form if refused)")] Parts,
+    [Text("Peças em forma livre sobre a superfície", "Free-form pieces on the surface")] FreeForm,
+}
+
 public sealed class PagingOptions : TileOptions
 {
     [Opt("Material das peças", "Tile material", Group = "Resultado|Result", Kind = OptKind.Material)]
@@ -466,6 +472,13 @@ public sealed class PagingOptions : TileOptions
     [Opt("Item do catálogo (código, opcional)", "Catalog item (code, optional)", Group = "Resultado|Result",
         Tip = "Ex.: PI-02. Usa o material e distribui as TONALIDADES do item do catálogo entre as peças.|E.g. PI-02. Uses the catalog item's material and spreads its tones among pieces.")]
     public string CatalogCode { get; set; } = "";
+
+    [Opt("Saída", "Output", Group = "Resultado|Result",
+        Tip = "Partes do Revit: divide o próprio piso/parede (editável e tabelável); se o Revit recusar a divisão, o plugin cria as peças em forma livre. Forma livre: peças sólidas sobre a superfície, com juntas e tonalidades.|Revit parts divide the element itself (falls back to free form if refused). Free form: solid pieces on the surface.")]
+    public PagingOutput Output { get; set; } = PagingOutput.Parts;
+
+    [Opt("Espessura das peças em forma livre", "Free-form piece thickness", Group = "Resultado|Result", Kind = OptKind.Length, Min = 0.0005)]
+    public double FreeThickness { get; set; } = U.Mm(10);
 
     [Opt("Marcar peças inteiras/recortadas (TT_Status)", "Mark full/cut pieces (TT_Status)", Group = "Resultado|Result")]
     public bool MarkStatus { get; set; } = true;
@@ -515,6 +528,129 @@ public sealed class PagingCommand : ToolCommand
         Execute(ctx, jobs, o, custom);
     }
 
+    /// <summary>
+    /// Divide a camada de acabamento em partes pelas linhas de junta. Tenta com o plano de esboço na face e,
+    /// se o Revit não dividir, com o plano no meio da camada. Cada tentativa é desfeita se não dividir.
+    /// Devolve as partes finais, ou nulo (com o motivo) se o Revit recusar.
+    /// </summary>
+    private static List<Part>? DivideIntoParts(Document doc, (Element Host, Region2 Region, Frame3 Frame, Plane Plane, PartsService.Side Side) job,
+        TileLayoutResult result, double joint, out string? reason)
+    {
+        reason = null;
+        // Tudo numa subtransação: se o Revit não dividir, nem as partes criadas para a tentativa ficam no modelo.
+        using var outer = new SubTransaction(doc);
+        outer.Start();
+        var res = TryDivide(doc, job, result, joint, ref reason);
+        if (res != null) outer.Commit();
+        else outer.RollBack();
+        return res;
+    }
+
+    private static List<Part>? TryDivide(Document doc, (Element Host, Region2 Region, Frame3 Frame, Plane Plane, PartsService.Side Side) job,
+        TileLayoutResult result, double joint, ref string? reason)
+    {
+        var all = PartsService.EnsureParts(doc, job.Host);
+        var parts = PartsService.FinishLayer(all, job.Side, job.Plane);
+        if (parts.Count == 0 || !PartUtils.ArePartsValidForDivide(doc, parts.Select(p => p.Id).ToList()))
+        {
+            reason = Loc.T("a camada de acabamento não aceita divisão", "the finish layer cannot be divided");
+            return null;
+        }
+        var n = job.Frame.ZAxis.ToXYZ();
+        var face = job.Frame.Origin.ToXYZ();
+        // deslocamento até o meio da camada escolhida (média dos centros ao longo da normal)
+        var mid = parts.Select(p => RevitGeo.BoxCenter(p)).Where(c => c != null).Select(c => (c! - face).DotProduct(n)).DefaultIfEmpty(0).Average();
+        var before = PartsService.Leaves(doc, job.Host.Id).Count;
+        foreach (var offset in new[] { 0.0, mid })
+        {
+            var curves = new List<Curve>();
+            foreach (var seg in result.JointLines)
+            {
+                var a = job.Frame.ToWorld(seg.A.X, seg.A.Y, 0).ToXYZ() + n * offset;
+                var b = job.Frame.ToWorld(seg.B.X, seg.B.Y, 0).ToXYZ() + n * offset;
+                if (a.DistanceTo(b) > Tolerance.ShortCurve * 1.5) curves.Add(Line.CreateBound(a, b));
+            }
+            if (curves.Count == 0)
+            {
+                reason = Loc.T("nenhuma linha de junta cruza o elemento", "no joint line crosses the element");
+                return null;
+            }
+            using var st = new SubTransaction(doc);
+            st.Start();
+            try
+            {
+                PartsService.Divide(doc, parts.Select(p => p.Id).ToList(), curves, Plane.CreateByNormalAndOrigin(n, face + n * offset), joint);
+                doc.Regenerate();
+                var leaves = PartsService.Leaves(doc, job.Host.Id);
+                if (leaves.Count > before)
+                {
+                    st.Commit();
+                    return PartsService.FinishLayer(leaves, job.Side, job.Plane);
+                }
+                reason ??= Loc.T("as linhas de junta não cruzaram a camada", "the joint lines did not cross the layer");
+                st.RollBack();
+            }
+            catch (Exception ex)
+            {
+                reason ??= ex.Message;
+                if (st.HasStarted() && !st.HasEnded()) st.RollBack();
+            }
+            if (Math.Abs(mid) < 1e-6) break; // o meio coincide com a face: não há outra tentativa útil
+        }
+        return null;
+    }
+
+    /// <summary>Peças sólidas (forma livre) sobre a superfície, agrupadas por material/tonalidade.</summary>
+    private static int FreeFormTiles(ToolContext ctx, (Element Host, Region2 Region, Frame3 Frame, Plane Plane, PartsService.Side Side) job,
+        TileLayoutResult result, Material? mat, List<Material>? tones, double thickness, string systemId, int jobIndex)
+    {
+        var doc = ctx.Doc;
+        // pisos: para cima; forros: para baixo; paredes: para fora da face
+        var dir = job.Side == PartsService.Side.Bottom ? -XYZ.BasisZ : job.Frame.ZAxis.ToXYZ();
+        var minEdge = doc.Application.ShortCurveTolerance * 2;
+        var byMat = new Dictionary<long, List<GeometryObject>>();
+        var idx = 0;
+        foreach (var t in result.Tiles)
+        {
+            var poly = t.Clipped.CleanForSketch(minEdge);
+            if (poly == null)
+            {
+                ctx.ItemFailed("Peças pequenas demais (ignoradas)", "Pieces too small (skipped)", Loc.T("recorte menor que a tolerância do Revit", "cut smaller than Revit tolerance"));
+                continue;
+            }
+            var pieceMat = tones is { Count: > 1 } ? tones[Materials.FinishItemForm.ToneIndex(jobIndex * 100000 + idx++, tones.Count)] : mat;
+            try
+            {
+                var pts = poly.Points.Select(p => job.Frame.ToWorld(p.X, p.Y, 0).ToXYZ()).ToList();
+                var loop = new CurveLoop();
+                for (var i = 0; i < pts.Count; i++) loop.Append(Line.CreateBound(pts[i], pts[(i + 1) % pts.Count]));
+                var opts = new SolidOptions(pieceMat?.Id ?? ElementId.InvalidElementId, ElementId.InvalidElementId);
+                var solid = GeometryCreationUtilities.CreateExtrusionGeometry(new List<CurveLoop> { loop }, dir, thickness, opts);
+                var key = pieceMat?.Id.Value ?? -1;
+                if (!byMat.TryGetValue(key, out var list)) byMat[key] = list = new List<GeometryObject>();
+                list.Add(solid);
+            }
+            catch (Exception ex)
+            {
+                ctx.ItemFailed("Peças não criadas", "Pieces not created", ex, job.Host.Id.Value);
+            }
+        }
+        var count = 0;
+        var k = 0;
+        foreach (var (matId, geo) in byMat)
+        {
+            var name = matId >= 0 && doc.GetElement(new ElementId(matId)) is Material m ? "TT Paginação — " + m.Name : "TT Paginação";
+            foreach (var chunk in geo.Chunk(2000))
+            {
+                var ds = Shapes.Create(doc, chunk.ToList(), job.Side == PartsService.Side.Top ? BuiltInCategory.OST_Floors : BuiltInCategory.OST_GenericModel, name);
+                GenSystem.Mark(ds, systemId, "floor.paging", jobIndex * 100000 + k++);
+                ctx.Report.AddResult(ds.Id.Value);
+                count += chunk.Length;
+            }
+        }
+        return count;
+    }
+
     /// <summary>Trabalho de paginação para um piso ou forro (face de cima / de baixo).</summary>
     internal static (Element Host, Region2 Region, Frame3 Frame, Plane Plane, PartsService.Side Side)? JobFor(Element e, bool isFloor)
     {
@@ -552,6 +688,7 @@ public sealed class PagingCommand : ToolCommand
                 }
             }
             var jobIndex = 0;
+            var partsMade = 0;
             foreach (var job in jobs)
             {
                 var s = o.ToCore();
@@ -574,40 +711,31 @@ public sealed class PagingCommand : ToolCommand
                         "{0} pieces is too many to divide safely — increase piece size or lay out a smaller area", pieceCount), job.Host.Id.Value);
                     continue;
                 }
-                List<Part> parts;
-                try
+                List<Part>? leaf = null;
+                string? reason = null;
+                if (o.Output == PagingOutput.Parts)
                 {
-                    parts = PartsService.FinishLayer(PartsService.EnsureParts(ctx.Doc, job.Host), job.Side, job.Side == PartsService.Side.All ? job.Plane : null);
-                }
-                catch (Exception ex)
-                {
-                    ctx.ItemFailed("Elementos não paginados", "Elements not laid out", ex, job.Host.Id.Value);
-                    continue;
-                }
-                var curves = new List<Curve>();
-                foreach (var seg in result.JointLines)
-                {
-                    var a = job.Frame.ToWorld(seg.A.X, seg.A.Y, 0).ToXYZ();
-                    var b = job.Frame.ToWorld(seg.B.X, seg.B.Y, 0).ToXYZ();
-                    if (job.Side != PartsService.Side.All)
+                    try
                     {
-                        a = new XYZ(seg.A.X, seg.A.Y, job.Frame.Origin.Z);
-                        b = new XYZ(seg.B.X, seg.B.Y, job.Frame.Origin.Z);
+                        leaf = DivideIntoParts(ctx.Doc, job, result, o.Joint, out reason);
                     }
-                    if (a.DistanceTo(b) > Tolerance.ShortCurve) curves.Add(Line.CreateBound(a, b));
+                    catch (Exception ex)
+                    {
+                        reason = ex.Message;
+                    }
                 }
-                try
+                if (leaf == null)
                 {
-                    PartsService.Divide(ctx.Doc, parts.Select(p => p.Id).ToList(), curves, job.Plane, o.Joint);
-                    ctx.Doc.Regenerate();
-                }
-                catch (Exception ex)
-                {
-                    ctx.ItemFailed("Elementos não paginados (divisão em partes recusada)", "Elements not laid out (division refused)", ex, job.Host.Id.Value);
+                    // Partes recusadas (ou forma livre escolhida): peças sólidas sobre a superfície, com juntas e tonalidades.
+                    if (o.Output == PagingOutput.Parts)
+                        ctx.Report.Info(Loc.F("{0}: o Revit não dividiu em partes ({1}); as peças foram criadas em forma livre sobre a superfície.",
+                            "{0}: Revit did not divide into parts ({1}); pieces were created as free form on the surface.", label, reason ?? "—"), job.Host.Id.Value);
+                    var made = FreeFormTiles(ctx, job, result, mat, tones, o.FreeThickness, systemId, jobIndex);
+                    ctx.Report.Count(Loc.T("Peças (forma livre)", "Pieces (free form)"), made);
+                    ctx.Report.AddResult(job.Host.Id.Value);
+                    jobIndex++;
                     continue;
                 }
-                var leaf = PartsService.FinishLayer(PartUtils.GetAssociatedParts(ctx.Doc, job.Host.Id, false, true)
-                    .Select(id => ctx.Doc.GetElement(id)).OfType<Part>().Where(p => !PartUtils.HasAssociatedParts(ctx.Doc, p.Id)).ToList(), job.Side, job.Side == PartsService.Side.All ? job.Plane : null);
                 var tileArea = o.TileLength * o.TileWidth;
                 var idx = 0;
                 foreach (var p in leaf)
@@ -626,11 +754,14 @@ public sealed class PagingCommand : ToolCommand
                     }
                 }
                 ctx.Report.Count(Loc.T("Peças (partes)", "Pieces (parts)"), leaf.Count);
+                partsMade += leaf.Count;
                 ctx.Report.AddResult(job.Host.Id.Value);
                 jobIndex++;
             }
-            if (o.CreateSchedule)
+            if (o.CreateSchedule && partsMade > 0)
             {
+                // Os parâmetros recém-vinculados só aparecem nos campos da tabela depois de regenerar.
+                ctx.Doc.Regenerate();
                 Schedules.Create(ctx.Doc, BuiltInCategory.OST_Parts, Loc.F("TT Paginação {0}", "TT Tiling {0}", systemId),
                     new[]
                     {
@@ -643,10 +774,10 @@ public sealed class PagingCommand : ToolCommand
                     new[] { "BIP:DPART_MATERIAL_ID_PARAM", SharedParams.Status }, itemized: false, report: ctx.Report);
                 ctx.Report.Count(Loc.T("Tabelas", "Schedules"));
             }
-            ctx.RequireCreated(ctx.Report.GetCount(Loc.T("Peças (partes)", "Pieces (parts)")), "peças da paginação", "layout pieces");
+            ctx.RequireCreated(ctx.Report.GetCount(Loc.T("Peças (partes)", "Pieces (parts)")) + ctx.Report.GetCount(Loc.T("Peças (forma livre)", "Pieces (free form)")), "peças da paginação", "layout pieces");
             // Sem isto a vista continua mostrando o elemento original e parece que nada foi gerado.
             var view = ctx.ActiveView;
-            if (view.PartsVisibility is not (PartsVisibility.ShowPartsOnly or PartsVisibility.ShowPartsAndOriginal))
+            if (partsMade > 0 && view.PartsVisibility is not (PartsVisibility.ShowPartsOnly or PartsVisibility.ShowPartsAndOriginal))
             {
                 try
                 {
@@ -760,22 +891,7 @@ public sealed class BaseboardCommand : ToolCommand
     }
 
     /// <summary>Desloca a curva para dentro do ambiente (testa o lado com IsPointInRoom).</summary>
-    private static Curve? InwardOffset(Room room, Curve c, double d)
-    {
-        try
-        {
-            var mid = c.Evaluate(0.5, true);
-            var tan = c.ComputeDerivatives(0.5, true).BasisX.Normalize();
-            var left = XYZ.BasisZ.CrossProduct(tan).Normalize();
-            var probe = mid + left * Math.Max(d, 0.05) + XYZ.BasisZ * 1.0;
-            var sign = room.IsPointInRoom(probe) ? 1 : -1;
-            return c.CreateOffset(sign * d, XYZ.BasisZ);
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    private static Curve? InwardOffset(Room room, Curve c, double d) => RevitGeo.OffsetIntoRoom(room, c, d, (room.Level?.Elevation ?? 0) + 1.0);
 
     private static IEnumerable<Curve> SplitAtDoors(Curve c, List<FamilyInstance> doors, double extra)
     {

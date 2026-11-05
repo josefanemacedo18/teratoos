@@ -78,6 +78,43 @@ public static class RevitGeo
         return pts.Select(p => p.ToVec2()).ToList();
     }
 
+    /// <summary>
+    /// Desloca a curva do contorno do ambiente para DENTRO dele (rodapés, revestimentos). Testa os dois lados:
+    /// o lado do Curve.CreateOffset depende do tipo de curva (linha: à direita; arco: pelo eixo), então
+    /// escolher o sinal "na teoria" punha o elemento dentro da parede e ele ficava sem volume visível.
+    /// </summary>
+    public static Curve? OffsetIntoRoom(Autodesk.Revit.DB.Architecture.Room room, Curve c, double d, double probeZ)
+    {
+        if (Math.Abs(d) < 1e-9) return c;
+        try
+        {
+            var mid = c.Evaluate(0.5, true);
+            foreach (var sign in new[] { 1.0, -1.0 })
+            {
+                Curve oc;
+                try
+                {
+                    oc = c.CreateOffset(sign * d, XYZ.BasisZ);
+                }
+                catch
+                {
+                    continue;
+                }
+                var om = oc.Evaluate(0.5, true);
+                var dir = new XYZ(om.X - mid.X, om.Y - mid.Y, 0);
+                if (dir.GetLength() < 1e-9) continue;
+                // sonda um pouco além do deslocamento, na direção dele
+                var probe = mid + dir.Normalize() * Math.Max(d * 2, 0.15);
+                if (room.IsPointInRoom(new XYZ(probe.X, probe.Y, probeZ))) return oc;
+            }
+        }
+        catch
+        {
+            // cai no nulo
+        }
+        return null;
+    }
+
     public static Polygon2 LoopToPolygon(IEnumerable<Curve> loop)
     {
         var pts = new List<Vec2>();

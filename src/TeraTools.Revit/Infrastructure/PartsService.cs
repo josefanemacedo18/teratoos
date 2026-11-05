@@ -36,7 +36,7 @@ public static class PartsService
     /// <summary>Escolhe a camada de acabamento: a de cima (pisos), a de baixo (forros) ou a mais próxima de um plano (paredes).</summary>
     public static List<Part> FinishLayer(List<Part> parts, Side side, Plane? nearPlane = null)
     {
-        if (parts.Count <= 1 || side == Side.All) return parts;
+        if (parts.Count <= 1 || (side == Side.All && nearPlane == null)) return parts;
         if (nearPlane != null)
         {
             var best = parts.OrderBy(p =>
@@ -59,6 +59,11 @@ public static class PartsService
         var bottom = withBox.Min(x => x.B!.Min.Z);
         return withBox.Where(x => Math.Abs(x.B!.Min.Z - bottom) < 0.003).Select(x => x.P).ToList();
     }
+
+    /// <summary>Partes finais (sem subdivisões) de um elemento.</summary>
+    public static List<Part> Leaves(Document doc, ElementId host) =>
+        PartUtils.GetAssociatedParts(doc, host, false, true).Select(id => doc.GetElement(id)).OfType<Part>()
+            .Where(p => !PartUtils.HasAssociatedParts(doc, p.Id)).ToList();
 
     /// <summary>Divide as partes pelas curvas (num plano de esboço) com junta (gap) opcional.</summary>
     public static PartMaker? Divide(Document doc, ICollection<ElementId> partIds, IList<Curve> curves, Plane plane, double gap)

@@ -154,22 +154,7 @@ internal static class WallFinishBuilder
 {
     public readonly record struct Opening(double S0, double S1, double Z0, double Z1);
 
-    public static Curve? OffsetIntoRoom(Room room, Curve c, double d, double probeZ)
-    {
-        try
-        {
-            var mid = c.Evaluate(0.5, true);
-            var tan = c.ComputeDerivatives(0.5, true).BasisX.Normalize();
-            var left = XYZ.BasisZ.CrossProduct(tan).Normalize();
-            var probe = mid + left * Math.Max(d, 0.1);
-            var sign = room.IsPointInRoom(new XYZ(probe.X, probe.Y, probeZ)) ? 1 : -1;
-            return Math.Abs(d) < 1e-9 ? c : c.CreateOffset(sign * d, XYZ.BasisZ);
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    public static Curve? OffsetIntoRoom(Room room, Curve c, double d, double probeZ) => RevitGeo.OffsetIntoRoom(room, c, d, probeZ);
 
     /// <summary>Vãos (portas, janelas, aberturas) da parede projetados na linha do revestimento.</summary>
     public static List<Opening> Openings(Document doc, Wall host, Line line)
