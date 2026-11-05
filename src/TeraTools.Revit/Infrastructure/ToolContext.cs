@@ -54,6 +54,9 @@ public sealed class ToolContext
 
     public UIApplication App { get; }
     public ToolInfo Tool { get; }
+
+    /// <summary>Execução sem interação (autoteste): não pergunta, não cria nem abre vistas.</summary>
+    public bool Silent { get; set; }
     public OperationReport Report { get; }
     public GlobalSettings Settings => Services.Settings;
     public bool HasDocument => App.ActiveUIDocument != null;
@@ -243,7 +246,7 @@ public sealed class ToolContext
                 "A operação criaria {0} {1}, acima do limite de {2}. Ajuste as opções ou o limite nas configurações.",
                 "The operation would create {0} {1}, above the limit of {2}. Adjust the options or the limit in settings.",
                 count, Loc.T(whatPt, whatEn), Settings.ElementHardLimit));
-        if (count > Settings.ElementWarningThreshold &&
+        if (count > Settings.ElementWarningThreshold && !Silent &&
             !Msg.Confirm(Loc.F("Serão criados {0} {1}. Isso pode deixar o modelo pesado. Continuar?",
                 "{0} {1} will be created. This may slow the model down. Continue?", count, Loc.T(whatPt, whatEn)), Tool.Name))
             Cancel();

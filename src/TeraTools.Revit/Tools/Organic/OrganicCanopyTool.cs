@@ -555,7 +555,7 @@ public sealed class OrganicCanopyCommand : ToolCommand
             }
             ctx.RequireCreated(created.Count, "partes da cobertura", "canopy parts");
             GenSystem.Register(doc, systemId, ToolId, o, c, Loc.T("Cobertura orgânica", "Organic canopy"));
-            if (created.Count > 0 && ctx.ActiveView is not View3D)
+            if (created.Count > 0 && !ctx.Silent && ctx.ActiveView is not View3D)
             {
                 var b = s.Footprint.Bounds;
                 viewId = OrganicGeo.View3DFor(ctx, Loc.F("TT Cobertura orgânica {0}", "TT Organic canopy {0}", systemId),

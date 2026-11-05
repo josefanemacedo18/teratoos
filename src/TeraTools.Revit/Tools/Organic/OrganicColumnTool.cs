@@ -522,7 +522,7 @@ public sealed class OrganicColumnCommand : ToolCommand
             }
             ctx.RequireCreated(created.Count, "colunas", "columns");
             GenSystem.Register(doc, systemId, ToolId, o, c, Loc.T("Colunas orgânicas", "Organic columns"));
-            if (created.Count > 0 && ctx.ActiveView is not View3D)
+            if (created.Count > 0 && !ctx.Silent && ctx.ActiveView is not View3D)
             {
                 var boxes = created.Select(id => doc.GetElement(id)?.get_BoundingBox(null)).Where(b => b != null).ToList();
                 if (boxes.Count > 0)
