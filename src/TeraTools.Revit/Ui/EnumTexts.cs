@@ -289,5 +289,17 @@ public static class EnumTexts
             (Core.Organic.ColumnConnection.Top, "No topo", "At the top"),
             (Core.Organic.ColumnConnection.Intermediate, "Num ponto intermediário (galhos)", "At an intermediate point (branches)"),
             (Core.Organic.ColumnConnection.Both, "No topo e no ponto intermediário", "At the top and the intermediate point"));
+        EnumLabels.Register(
+            (Core.Organic.FinProfile.Plate, "Chapa (retangular)", "Plate (rectangular)"),
+            (Core.Organic.FinProfile.Round, "Tubo redondo", "Round tube"),
+            (Core.Organic.FinProfile.Rhombus, "Losango", "Diamond"),
+            (Core.Organic.FinProfile.Ellipse, "Elíptica", "Elliptic"),
+            (Core.Organic.FinProfile.Airfoil, "Gota (aerofólio)", "Teardrop (airfoil)"));
+        EnumLabels.Register(
+            (Core.Organic.FinTrim.Flat, "Reto (altura fixa)", "Straight (fixed height)"),
+            (Core.Organic.FinTrim.Slope, "Inclinado", "Sloped"),
+            (Core.Organic.FinTrim.Wave, "Em onda", "Wavy"),
+            (Core.Organic.FinTrim.Arch, "Arco (na base: abertura de entrada)", "Arch (at the bottom: entrance opening)"),
+            (Core.Organic.FinTrim.Drawn, "Linha desenhada em elevação", "Line drawn in elevation"));
     }
 }

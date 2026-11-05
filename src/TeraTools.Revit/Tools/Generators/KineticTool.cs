@@ -318,6 +318,7 @@ internal static class GenRegistry
         ["join.module"] = Joinery.JoineryUi.Regenerate,
         ["org.column"] = Organic.OrganicColumnCommand.Regenerate,
         ["org.canopy"] = Organic.OrganicCanopyCommand.Regenerate,
+        ["org.fins"] = Organic.OrganicFinCommand.Regenerate,
     };
 
     public static (string SystemId, ProjectStorage.GeneratedSystem System) PickSystem(ToolContext ctx, string? toolFilter = null)
