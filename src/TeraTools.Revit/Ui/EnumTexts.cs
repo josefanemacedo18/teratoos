@@ -19,6 +19,10 @@ public static class EnumTexts
 {
     public static void RegisterAll()
     {
+        // Catálogo de acabamentos: mesmos rótulos da planilha (definidos no núcleo).
+        EnumLabels.Register(Core.Finishes.FinishLabels.Kinds.Select(k => (k.Value, k.Pt, k.Value.ToString())).ToArray());
+        EnumLabels.Register(Core.Finishes.FinishLabels.Uses.Select(k => (k.Value, k.Pt, k.Value.ToString())).ToArray());
+        EnumLabels.Register(Core.Finishes.FinishLabels.Units.Select(k => (k.Value, k.Pt, k.Value.ToString())).ToArray());
         EnumLabels.Register(
             (PixyPattern.Hexagonal, "Hexagonal (colmeia)", "Hexagonal (honeycomb)"),
             (PixyPattern.Voronoi, "Voronoi (orgânico)", "Voronoi (organic)"),

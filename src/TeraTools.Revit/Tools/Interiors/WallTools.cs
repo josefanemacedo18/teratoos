@@ -319,6 +319,12 @@ public sealed class WallFinishCommand : ToolCommand
     {
         var rooms = ctx.SelectedOrPick("Selecione os ambientes", "Select the rooms", e => e is Room r && r.Area > 0).OfType<Room>().ToList();
         var o = ctx.Ask<WallFinishOptions>();
+        Execute(ctx, rooms, o);
+    }
+
+    /// <summary>Executa com ambientes e opções já definidos (usado também pelo catálogo de acabamentos).</summary>
+    internal static void Execute(ToolContext ctx, List<Room> rooms, WallFinishOptions o)
+    {
         var doc = ctx.Doc;
         var wt = Lookup.Named<WallType>(doc, o.Type) ?? throw new ToolException(Loc.T("Escolha o tipo de parede do revestimento.", "Choose the finish wall type."));
         var opts = new SpatialElementBoundaryOptions { SpatialElementBoundaryLocation = SpatialElementBoundaryLocation.Finish };

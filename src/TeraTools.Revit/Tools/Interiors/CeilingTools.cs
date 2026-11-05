@@ -78,6 +78,12 @@ public sealed class CeilingByRoomCommand : ToolCommand
     {
         var rooms = ctx.SelectedOrPick("Selecione os ambientes", "Select the rooms", e => e is Room r && r.Area > 0).OfType<Room>().ToList();
         var o = ctx.Ask<CeilingByRoomOptions>();
+        Execute(ctx, rooms, o);
+    }
+
+    /// <summary>Executa com ambientes e opções já definidos (usado também pelo catálogo de acabamentos).</summary>
+    internal static void Execute(ToolContext ctx, List<Room> rooms, CeilingByRoomOptions o)
+    {
         var doc = ctx.Doc;
         var typeId = CeilingUtil.TypeId(doc, o.Type);
         ctx.Modify(ctx.Tool.Name, () =>

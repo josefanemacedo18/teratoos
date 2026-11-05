@@ -122,6 +122,12 @@ public sealed class FloorByRoomCommand : ToolCommand
     {
         var rooms = FloorUtil.PickRooms(ctx);
         var o = ctx.Ask<FloorByRoomOptions>();
+        Execute(ctx, rooms, o);
+    }
+
+    /// <summary>Executa com ambientes e opções já definidos (usado também pelo catálogo de acabamentos).</summary>
+    internal static void Execute(ToolContext ctx, List<Room> rooms, FloorByRoomOptions o)
+    {
         var typeId = FloorUtil.FloorType(ctx.Doc, o.FloorType);
         var typeName = ctx.Doc.GetElement(typeId)?.Name ?? "";
         var loc = o.Boundary switch
@@ -437,6 +443,10 @@ public sealed class PagingOptions : TileOptions
     [Opt("Material das peças", "Tile material", Group = "Resultado|Result", Kind = OptKind.Material)]
     public string Material { get; set; } = "";
 
+    [Opt("Item do catálogo (código, opcional)", "Catalog item (code, optional)", Group = "Resultado|Result",
+        Tip = "Ex.: PI-02. Usa o material e distribui as TONALIDADES do item do catálogo entre as peças.|E.g. PI-02. Uses the catalog item's material and spreads its tones among pieces.")]
+    public string CatalogCode { get; set; } = "";
+
     [Opt("Marcar peças inteiras/recortadas (TT_Status)", "Mark full/cut pieces (TT_Status)", Group = "Resultado|Result")]
     public bool MarkStatus { get; set; } = true;
 
@@ -474,28 +484,53 @@ public sealed class PagingCommand : ToolCommand
                 e => host == PagingHost.Floors ? e is Floor : e is Ceiling);
             foreach (var e in els)
             {
-                var reg = RevitGeo.HostRegion(e);
-                var b = RevitGeo.Box(e);
-                if (reg == null || b == null)
-                {
-                    ctx.Report.Warn(Loc.T("Contorno não encontrado.", "Outline not found."), e.Id.Value);
-                    continue;
-                }
-                var z = host == PagingHost.Floors ? b.Max.Z : b.Min.Z;
-                jobs.Add((e, reg, Frame3.World with { Origin = new Vec3(0, 0, z) }, Plane.CreateByNormalAndOrigin(XYZ.BasisZ, new XYZ(0, 0, z)),
-                    host == PagingHost.Floors ? PartsService.Side.Top : PartsService.Side.Bottom));
+                if (JobFor(e, host == PagingHost.Floors) is { } job) jobs.Add(job);
+                else ctx.ItemFailed("Elementos não paginados", "Elements not laid out", Loc.T("contorno não encontrado", "outline not found"), e.Id.Value);
             }
         }
         if (jobs.Count == 0) ctx.Cancel();
         var first = jobs[0];
         var o = ctx.Ask(ctx.LoadOptions<PagingOptions>(), preview: x => TileOptions.Preview(first.Region, x.ToCore(), x.Optimize), okText: Loc.T("Paginar", "Lay out"));
         XYZ? custom = o.Start == TileStart.Custom ? ctx.PickPoint("Clique no ponto inicial da paginação", "Click the layout start point") : null;
+        Execute(ctx, jobs, o, custom);
+    }
+
+    /// <summary>Trabalho de paginação para um piso ou forro (face de cima / de baixo).</summary>
+    internal static (Element Host, Region2 Region, Frame3 Frame, Plane Plane, PartsService.Side Side)? JobFor(Element e, bool isFloor)
+    {
+        var reg = RevitGeo.HostRegion(e);
+        var b = RevitGeo.Box(e);
+        if (reg == null || b == null) return null;
+        var z = isFloor ? b.Max.Z : b.Min.Z;
+        return (e, reg, Frame3.World with { Origin = new Vec3(0, 0, z) }, Plane.CreateByNormalAndOrigin(XYZ.BasisZ, new XYZ(0, 0, z)),
+            isFloor ? PartsService.Side.Top : PartsService.Side.Bottom);
+    }
+
+    /// <summary>Divide os elementos em peças com as opções dadas (usado também pelo catálogo de acabamentos).</summary>
+    internal static void Execute(ToolContext ctx, List<(Element Host, Region2 Region, Frame3 Frame, Plane Plane, PartsService.Side Side)> jobs, PagingOptions o, XYZ? custom)
+    {
         var systemId = GenSystem.NewId();
         var summary = new List<TableData>();
         ctx.Modify(ctx.Tool.Name, () =>
         {
             GenSystem.BindParams(ctx.Doc, ctx.Report);
             var mat = Lookup.Material(ctx.Doc, o.Material);
+            // Item do catálogo: material do item e as tonalidades distribuídas entre as peças.
+            List<Material>? tones = null;
+            if (!string.IsNullOrWhiteSpace(o.CatalogCode))
+            {
+                var item = Materials.FinishStore.Load(ctx.Doc).Find(o.CatalogCode);
+                if (item == null)
+                {
+                    ctx.Report.Warn(Loc.F("Item \"{0}\" não encontrado no catálogo do projeto; usado o material escolhido.", "Item \"{0}\" not found in the catalog.", o.CatalogCode));
+                }
+                else
+                {
+                    var sync = new Materials.FinishSync.Result();
+                    mat = Materials.FinishSync.EnsureMaterial(ctx.Doc, item, sync);
+                    tones = Materials.FinishSync.ToneMaterials(ctx.Doc, item, mat, sync);
+                }
+            }
             var jobIndex = 0;
             foreach (var job in jobs)
             {
@@ -557,10 +592,11 @@ public sealed class PagingCommand : ToolCommand
                 var idx = 0;
                 foreach (var p in leaf)
                 {
-                    if (mat != null)
+                    var pieceMat = tones is { Count: > 1 } ? tones[Materials.FinishItemForm.ToneIndex(jobIndex * 100000 + idx, tones.Count)] : mat;
+                    if (pieceMat != null)
                     {
                         RevitGeo.Set(p, BuiltInParameter.DPART_MATERIAL_BY_ORIGINAL, 0);
-                        RevitGeo.Set(p, BuiltInParameter.DPART_MATERIAL_ID_PARAM, mat.Id);
+                        RevitGeo.Set(p, BuiltInParameter.DPART_MATERIAL_ID_PARAM, pieceMat.Id);
                     }
                     GenSystem.Mark(p, systemId, "floor.paging", jobIndex * 100000 + idx++);
                     if (o.MarkStatus)
@@ -647,6 +683,12 @@ public sealed class BaseboardCommand : ToolCommand
     {
         var rooms = FloorUtil.PickRooms(ctx);
         var o = ctx.Ask<BaseboardOptions>();
+        Execute(ctx, rooms, o);
+    }
+
+    /// <summary>Executa com ambientes e opções já definidos (usado também pelo catálogo de acabamentos).</summary>
+    internal static void Execute(ToolContext ctx, List<Room> rooms, BaseboardOptions o)
+    {
         var doc = ctx.Doc;
         var wt = Lookup.Named<WallType>(doc, o.WallType) ?? throw new ToolException(Loc.T("Escolha o tipo de parede do rodapé.", "Choose the baseboard wall type."));
         var thick = wt.Width;
