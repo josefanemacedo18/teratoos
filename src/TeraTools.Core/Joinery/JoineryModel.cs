@@ -95,6 +95,9 @@ public enum HardwareKind
     HangingRail,
     PushLatch,
     Damper,
+    GlassProfile,
+    WallBracket,
+    BifoldKit,
 }
 
 /// <summary>Especificação de um módulo de marcenaria (pés internamente; valores padrão em mm).</summary>
@@ -379,6 +382,9 @@ public static class JoineryNames
         HardwareKind.Lift => Loc.T("Articulador / pistão", "Lift / gas strut"),
         HardwareKind.HangingRail => Loc.T("Cabideiro", "Hanging rail"),
         HardwareKind.PushLatch => Loc.T("Fecho toque", "Push latch"),
+        HardwareKind.GlassProfile => Loc.T("Perfil para vidro", "Glass frame profile"),
+        HardwareKind.WallBracket => Loc.T("Suporte de parede", "Wall bracket"),
+        HardwareKind.BifoldKit => Loc.T("Kit porta camarão", "Bifold kit"),
         _ => Loc.T("Amortecedor", "Damper"),
     };
 
