@@ -145,6 +145,7 @@ public static class Icons
         // ---------- Projeto
         ["proj.presets"] = "F:M4,6 H16 V18 H4 Z;f:M10,10 H22 V22 H10 Z;f:M16,14 H28 V26 H16 Z",
         ["proj.transfer"] = "f:M3,6 H13 V26 H3 Z;f:M19,6 H29 V26 H19 Z;a:M14,12 H18 M16,10 L18,12 L16,14 M18,20 H14 M16,18 L14,20 L16,22",
+        ["proj.references"] = "f:M3,6 H21 V22 H3 Z;s:M3,18 L9,12 L14,17 L17,14 L21,18;F:M15,9 A2,2 0 1 1 14.99,9 Z;f:M11,10 H29 V28 H11 Z;a:M11,24 L17,18 L22,23 L25,20 L29,24",
         ["proj.batch"] = "f:M3,4 H13 V14 H3 Z;f:M3,18 H13 V28 H3 Z;F:M19,11 H29 V21 H19 Z;a:M13,9 L19,14 M13,23 L19,18",
     };
 

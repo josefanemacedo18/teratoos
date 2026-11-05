@@ -208,6 +208,10 @@ public static class ProjectStorage
         Save(doc, s);
     }
 
+    /// <summary>Todos os sistemas gerados registrados no projeto (id → registro).</summary>
+    public static Dictionary<string, GeneratedSystem> AllSystems(Document doc) =>
+        Load(doc).GetSection<GeneratedSystems>(SectionSystems).Systems;
+
     public static GeneratedSystem? GetSystem(Document doc, string systemId)
     {
         var reg = Load(doc).GetSection<GeneratedSystems>(SectionSystems);
