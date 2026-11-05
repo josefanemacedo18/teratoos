@@ -258,5 +258,36 @@ public static class EnumTexts
             (Core.Organic.ColumnEnd.Disc, "Disco", "Disc"),
             (Core.Organic.ColumnEnd.Square, "Placa quadrada", "Square plate"),
             (Core.Organic.ColumnEnd.Plate, "Prato (abre a partir do fuste)", "Plate (flares from the shaft)"));
+        EnumLabels.Register(
+            (Core.Organic.CanopySurface.Flat, "Plana inclinada", "Sloped flat"),
+            (Core.Organic.CanopySurface.Vault, "Abóbada (arco)", "Vault (arch)"),
+            (Core.Organic.CanopySurface.Pillow, "Almofada (sobe a partir do contorno)", "Pillow (rises from the outline)"),
+            (Core.Organic.CanopySurface.Saddle, "Sela (paraboloide hiperbólico)", "Saddle (hyperbolic paraboloid)"),
+            (Core.Organic.CanopySurface.Waves, "Ondas", "Waves"),
+            (Core.Organic.CanopySurface.Umbrellas, "Guarda-chuvas sobre os apoios", "Umbrellas over the supports"),
+            (Core.Organic.CanopySurface.Membrane, "Membrana tensionada (picos nos apoios)", "Tensile membrane (peaks at the supports)"),
+            (Core.Organic.CanopySurface.Attractors, "Bolhas em volta de pontos (atratores)", "Bubbles around points (attractors)"),
+            (Core.Organic.CanopySurface.Formula, "Fórmula", "Formula"));
+        EnumLabels.Register(
+            (Core.Organic.CanopySkin.Continuous, "Contínua com espessura", "Continuous with thickness"),
+            (Core.Organic.CanopySkin.Panels, "Painéis com juntas", "Panels with joints"),
+            (Core.Organic.CanopySkin.Slats, "Lâminas paralelas", "Parallel slats"),
+            (Core.Organic.CanopySkin.None, "Sem pele (só estrutura)", "No skin (structure only)"));
+        EnumLabels.Register(
+            (Core.Organic.CanopyStructure.None, "Nenhuma", "None"),
+            (Core.Organic.CanopyStructure.Grid, "Grelha", "Grid"),
+            (Core.Organic.CanopyStructure.Diagrid, "Diagrid (diagonais)", "Diagrid (diagonals)"),
+            (Core.Organic.CanopyStructure.Radial, "Radial (nervuras e anéis por apoio)", "Radial (ribs and rings per support)"));
+        EnumLabels.Register(
+            (Core.Organic.CanopySupports.None, "Nenhum", "None"),
+            (Core.Organic.CanopySupports.Straight, "Pilares retos", "Straight posts"),
+            (Core.Organic.CanopySupports.Tree, "Árvores (tronco e galhos)", "Trees (trunk and branches)"));
+        EnumLabels.Register(
+            (Core.Organic.MemberProfile.Rectangular, "Retangular (alma vertical)", "Rectangular (vertical web)"),
+            (Core.Organic.MemberProfile.Tube, "Tubo redondo", "Round tube"));
+        EnumLabels.Register(
+            (Core.Organic.ColumnConnection.Top, "No topo", "At the top"),
+            (Core.Organic.ColumnConnection.Intermediate, "Num ponto intermediário (galhos)", "At an intermediate point (branches)"),
+            (Core.Organic.ColumnConnection.Both, "No topo e no ponto intermediário", "At the top and the intermediate point"));
     }
 }

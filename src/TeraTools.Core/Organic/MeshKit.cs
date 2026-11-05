@@ -163,21 +163,210 @@ public static class MeshKit
             }
             rings.Add(ring);
         }
-        if (!closedPath) return Loft(rings, role);
-        // anel fechado (toro): liga o último ao primeiro, sem tampas
+        return closedPath ? RingLoop(rings, role) : Loft(rings, role);
+    }
+
+    /// <summary>Anéis ligados em laço (o último volta ao primeiro), sem tampas — tubos e vigas fechados.</summary>
+    public static OrganicMesh RingLoop(IReadOnlyList<IReadOnlyList<Vec3>> rings, string role)
+    {
         var m = new OrganicMesh { Role = role };
-        var idx = rings.Select(r => r.Select(m.Add).ToArray()).ToList();
+        if (rings.Count < 3 || rings[0].Count < 3) return m;
+        var n = rings[0].Count;
+        var idx = rings.Select(r => Enumerable.Range(0, n).Select(i => m.Add(r[i])).ToArray()).ToList();
         for (var k = 0; k < idx.Count; k++)
         {
             var k2 = (k + 1) % idx.Count;
-            for (var i = 0; i < sides; i++)
+            for (var i = 0; i < n; i++)
             {
-                var j = (i + 1) % sides;
+                var j = (i + 1) % n;
                 m.Quad(idx[k][i], idx[k][j], idx[k2][j], idx[k2][i]);
             }
         }
         Orient(m);
         return m;
+    }
+
+    /// <summary>
+    /// Varredura de um perfil 2D ao longo de um caminho, mantendo o "para cima" do perfil alinhado a
+    /// <paramref name="up"/> (vigas com alma vertical que acompanham uma superfície). O perfil usa
+    /// X = lateral, Y = para cima.
+    /// </summary>
+    public static OrganicMesh Sweep(IReadOnlyList<Vec3> path, IReadOnlyList<Vec2> profile, Vec3 up, string role, bool closedPath = false)
+    {
+        var pts = Dedup(path);
+        if (closedPath && pts.Count > 2 && pts[0].DistanceTo(pts[^1]) < 1e-6) pts.RemoveAt(pts.Count - 1);
+        if (pts.Count < 2 || profile.Count < 3) return new OrganicMesh { Role = role };
+        var frames = Frames(pts, closedPath);
+        var rings = new List<IReadOnlyList<Vec3>>(pts.Count);
+        for (var k = 0; k < pts.Count; k++)
+        {
+            var a = pts[closedPath ? (k - 1 + pts.Count) % pts.Count : Math.Max(0, k - 1)];
+            var b = pts[closedPath ? (k + 1) % pts.Count : Math.Min(pts.Count - 1, k + 1)];
+            var t = (b - a).Normalized();
+            var side = t.Cross(up);
+            Vec3 u;
+            if (side.Length < 1e-6)
+            {
+                side = frames[k].N;
+                u = frames[k].B;
+            }
+            else
+            {
+                side = side.Normalized();
+                u = side.Cross(t).Normalized();
+            }
+            var p = pts[k];
+            rings.Add(profile.Select(q => p + side * q.X + u * q.Y).ToList());
+        }
+        return closedPath ? RingLoop(rings, role) : Loft(rings, role);
+    }
+
+    /// <summary>Esfera (para nós e juntas de galhos).</summary>
+    public static OrganicMesh Sphere(Vec3 c, double r, string role, int segments = 12)
+    {
+        var m = new OrganicMesh { Role = role };
+        if (r <= 0) return m;
+        var rings = Math.Max(3, segments / 2);
+        var top = m.Add(c + Vec3.UnitZ * r);
+        var bottom = m.Add(c - Vec3.UnitZ * r);
+        var idx = new int[rings - 1, segments];
+        for (var i = 1; i < rings; i++)
+        {
+            var th = Math.PI * i / rings;
+            for (var j = 0; j < segments; j++)
+            {
+                var ph = 2 * Math.PI * j / segments;
+                idx[i - 1, j] = m.Add(c + new Vec3(Math.Sin(th) * Math.Cos(ph), Math.Sin(th) * Math.Sin(ph), Math.Cos(th)) * r);
+            }
+        }
+        for (var j = 0; j < segments; j++)
+        {
+            var j2 = (j + 1) % segments;
+            m.Tri(top, idx[0, j], idx[0, j2]);
+            m.Tri(bottom, idx[rings - 2, j2], idx[rings - 2, j]);
+            for (var i = 0; i < rings - 2; i++) m.Quad(idx[i, j], idx[i + 1, j], idx[i + 1, j2], idx[i, j2]);
+        }
+        Orient(m);
+        return m;
+    }
+
+    /// <summary>
+    /// Placa que acompanha uma superfície z = f(x, y): o contorno é recortado numa malha de células,
+    /// triangulado, e ganha espessura para baixo. Resultado fechado (vértices compartilhados).
+    /// </summary>
+    public static OrganicMesh SurfaceSlab(Polygon2 region, double cell, Func<Vec2, double> z, double thickness, string role, double rotation = 0)
+    {
+        var poly = region.EnsureCounterClockwise();
+        if (poly.IsEmpty) return new OrganicMesh { Role = role };
+        return SurfaceSlab(ConvexPieces(poly), cell, z, thickness, role, rotation);
+    }
+
+    /// <summary>Triângulos da planta (peças convexas), para recortes exatos por células convexas.</summary>
+    public static List<Polygon2> ConvexPieces(Polygon2 region)
+    {
+        var poly = region.EnsureCounterClockwise();
+        return Triangulation.EarClip(poly).Select(t => new Polygon2(new[] { poly[t.A], poly[t.B], poly[t.C] })).ToList();
+    }
+
+    /// <summary>Placa sobre uma região dada por peças convexas (que se encostam sem se sobrepor).</summary>
+    public static OrganicMesh SurfaceSlab(IReadOnlyList<Polygon2> pieces, double cell, Func<Vec2, double> z, double thickness, string role, double rotation = 0)
+    {
+        var m = new OrganicMesh { Role = role };
+        var all = pieces.Where(p => !p.IsEmpty).ToList();
+        if (all.Count == 0 || cell <= 0) return m;
+        var poly = new Polygon2(all.SelectMany(p => p));
+        var c = new Vec2(poly.Average(p => p.X), poly.Average(p => p.Y));
+        var ax = Vec2.FromAngle(rotation);
+        var ay = ax.Perp;
+        double u0 = double.MaxValue, u1 = double.MinValue, v0 = double.MaxValue, v1 = double.MinValue;
+        foreach (var p in poly)
+        {
+            var d = p - c;
+            u0 = Math.Min(u0, d.Dot(ax)); u1 = Math.Max(u1, d.Dot(ax));
+            v0 = Math.Min(v0, d.Dot(ay)); v1 = Math.Max(v1, d.Dot(ay));
+        }
+        var nu = Math.Max(1, (int)Math.Ceiling((u1 - u0) / cell - 1e-9));
+        var nv = Math.Max(1, (int)Math.Ceiling((v1 - v0) / cell - 1e-9));
+        var du = (u1 - u0) / nu;
+        var dv = (v1 - v0) / nv;
+        var keys = new Dictionary<(long, long), int>();
+        var top = new List<(int, int, int)>();
+        // pontos a menos de 1 mm viram um só (o recorte pela borda cria lascas que o Revit recusaria)
+        var snap = 1 / 304.8;
+        int Vertex(Vec2 p)
+        {
+            var k = ((long)Math.Round(p.X / snap), (long)Math.Round(p.Y / snap));
+            if (!keys.TryGetValue(k, out var i)) keys[k] = i = m.Add(new Vec3(p.X, p.Y, z(p)));
+            return i;
+        }
+        Vec2 W(double u, double v) => c + ax * u + ay * v;
+        // A planta é triangulada uma vez; cada triângulo (convexo) é recortado pelas células (convexas).
+        // Recortar convexo por convexo é exato — recortar a planta côncava direto criaria pontes de largura zero.
+        var outline = all;
+        var local = outline.Select(t =>
+        {
+            double a = double.MaxValue, b = double.MinValue, e = double.MaxValue, g = double.MinValue;
+            foreach (var p in t)
+            {
+                var d = p - c;
+                a = Math.Min(a, d.Dot(ax)); b = Math.Max(b, d.Dot(ax));
+                e = Math.Min(e, d.Dot(ay)); g = Math.Max(g, d.Dot(ay));
+            }
+            return (U0: a, U1: b, V0: e, V1: g);
+        }).ToList();
+        for (var i = 0; i < nu; i++)
+            for (var j = 0; j < nv; j++)
+            {
+                double a0 = u0 + i * du, a1 = u0 + (i + 1) * du, b0 = v0 + j * dv, b1 = v0 + (j + 1) * dv;
+                var cellPoly = new Polygon2(new[] { W(a0, b0), W(a1, b0), W(a1, b1), W(a0, b1) });
+                for (var k = 0; k < outline.Count; k++)
+                {
+                    var bb = local[k];
+                    if (bb.U1 < a0 - 1e-9 || bb.U0 > a1 + 1e-9 || bb.V1 < b0 - 1e-9 || bb.V0 > b1 + 1e-9) continue;
+                    var piece = outline[k].ClipByConvex(cellPoly);
+                    if (piece.IsEmpty || piece.Area < 1e-8) continue;
+                    piece = piece.EnsureCounterClockwise();
+                    var ids = piece.Select(Vertex).ToArray();
+                    for (var q = 1; q + 1 < ids.Length; q++)
+                        if (ids[0] != ids[q] && ids[q] != ids[q + 1] && ids[0] != ids[q + 1]) top.Add((ids[0], ids[q], ids[q + 1]));
+                }
+            }
+        if (top.Count == 0) return m;
+        var nTop = m.Vertices.Count;
+        for (var i = 0; i < nTop; i++) m.Add(m.Vertices[i] - Vec3.UnitZ * thickness);
+        foreach (var (a, b, cc) in top)
+        {
+            m.Tri(a, b, cc);
+            m.Tri(a + nTop, cc + nTop, b + nTop);
+        }
+        // bordas livres (usadas por um triângulo só) viram paredes laterais
+        var edges = new Dictionary<(int, int), int>();
+        foreach (var (a, b, cc) in top)
+            foreach (var (p, q) in new[] { (a, b), (b, cc), (cc, a) })
+            {
+                var k = p < q ? (p, q) : (q, p);
+                edges[k] = edges.GetValueOrDefault(k) + 1;
+            }
+        foreach (var (a, b, cc) in top)
+            foreach (var (p, q) in new[] { (a, b), (b, cc), (cc, a) })
+            {
+                var k = p < q ? (p, q) : (q, p);
+                if (edges[k] == 1) m.Quad(q, p, p + nTop, q + nTop);
+            }
+        Orient(m);
+        return m;
+    }
+
+    /// <summary>Pontos de uma curva de Bézier quadrática.</summary>
+    public static List<Vec3> Bezier(Vec3 a, Vec3 control, Vec3 b, int samples = 12)
+    {
+        var list = new List<Vec3>(samples + 1);
+        for (var i = 0; i <= samples; i++)
+        {
+            var t = (double)i / samples;
+            list.Add(a * ((1 - t) * (1 - t)) + control * (2 * (1 - t) * t) + b * (t * t));
+        }
+        return list;
     }
 
     /// <summary>Referenciais ao longo do caminho (normal e binormal), sem torção brusca.</summary>
