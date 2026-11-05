@@ -316,6 +316,7 @@ internal static class GenRegistry
         ["wall.slats"] = Interiors.SlatsCommand.Regenerate,
         ["wall.boiserie"] = Interiors.BoiserieCommand.Regenerate,
         ["join.module"] = Joinery.JoineryUi.Regenerate,
+        ["org.column"] = Organic.OrganicColumnCommand.Regenerate,
     };
 
     public static (string SystemId, ProjectStorage.GeneratedSystem System) PickSystem(ToolContext ctx, string? toolFilter = null)

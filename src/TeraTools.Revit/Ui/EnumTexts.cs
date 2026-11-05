@@ -19,6 +19,7 @@ public static class EnumTexts
 {
     public static void RegisterAll()
     {
+        RegisterOrganic();
         // Catálogo de acabamentos: mesmos rótulos da planilha (definidos no núcleo).
         EnumLabels.Register(Core.Finishes.FinishLabels.Kinds.Select(k => (k.Value, k.Pt, k.Value.ToString())).ToArray());
         EnumLabels.Register(Core.Finishes.FinishLabels.Uses.Select(k => (k.Value, k.Pt, k.Value.ToString())).ToArray());
@@ -218,5 +219,44 @@ public static class EnumTexts
             (PriceMatch.FamilyType, "Família : Tipo", "Family : Type"),
             (PriceMatch.Material, "Material", "Material"),
             (PriceMatch.Category, "Categoria", "Category"));
+    }
+
+    private static void RegisterOrganic()
+    {
+        EnumLabels.Register(
+            (Core.Organic.ColumnSilhouette.Cylinder, "Cilindro (diâmetro constante)", "Cylinder (constant diameter)"),
+            (Core.Organic.ColumnSilhouette.Cone, "Cone (varia da base ao topo)", "Cone (base to top)"),
+            (Core.Organic.ColumnSilhouette.Trumpet, "Trompete / leque (abre no alto)", "Trumpet / fan (flares at the top)"),
+            (Core.Organic.ColumnSilhouette.Belly, "Barriga (mais larga no meio)", "Belly (wider in the middle)"),
+            (Core.Organic.ColumnSilhouette.Hourglass, "Ampulheta (mais estreita no meio)", "Hourglass (narrower in the middle)"),
+            (Core.Organic.ColumnSilhouette.Mushroom, "Cogumelo (abre de repente no alto)", "Mushroom (opens abruptly at the top)"),
+            (Core.Organic.ColumnSilhouette.Formula, "Fórmula", "Formula"),
+            (Core.Organic.ColumnSilhouette.Drawn, "Desenhada (meio perfil em elevação)", "Drawn (half profile in elevation)"));
+        EnumLabels.Register(
+            (Core.Organic.ColumnSection.Circle, "Círculo", "Circle"),
+            (Core.Organic.ColumnSection.Polygon, "Polígono", "Polygon"),
+            (Core.Organic.ColumnSection.Lobed, "Lobada (flor)", "Lobed (flower)"),
+            (Core.Organic.ColumnSection.Star, "Estrela", "Star"),
+            (Core.Organic.ColumnSection.Ellipse, "Elipse", "Ellipse"),
+            (Core.Organic.ColumnSection.Drawn, "Desenhada (contorno em planta)", "Drawn (outline in plan)"));
+        EnumLabels.Register(
+            (Core.Organic.ColumnSpine.Straight, "Reto (prumo)", "Straight (plumb)"),
+            (Core.Organic.ColumnSpine.Inclined, "Inclinado", "Inclined"),
+            (Core.Organic.ColumnSpine.Bow, "Arqueado (sai e volta ao prumo)", "Bow (leaves and returns to plumb)"),
+            (Core.Organic.ColumnSpine.SCurve, "Em S (topo deslocado)", "S-curve (shifted top)"),
+            (Core.Organic.ColumnSpine.Drawn, "Desenhado (linha 3D)", "Drawn (3D line)"));
+        EnumLabels.Register(
+            (Core.Organic.ColumnBuild.Solid, "Cheia (maciça)", "Solid"),
+            (Core.Organic.ColumnBuild.Shell, "Oca (casca com espessura)", "Hollow (shell)"),
+            (Core.Organic.ColumnBuild.Ribs, "Nervuras verticais", "Vertical ribs"),
+            (Core.Organic.ColumnBuild.Lattice, "Treliça (hélices cruzadas)", "Lattice (crossed helices)"),
+            (Core.Organic.ColumnBuild.Grid, "Grelha (nervuras e anéis)", "Grid (ribs and rings)"),
+            (Core.Organic.ColumnBuild.Lamellas, "Lâminas radiais", "Radial fins"),
+            (Core.Organic.ColumnBuild.Petals, "Pétalas (tulipa)", "Petals (tulip)"));
+        EnumLabels.Register(
+            (Core.Organic.ColumnEnd.None, "Nenhum", "None"),
+            (Core.Organic.ColumnEnd.Disc, "Disco", "Disc"),
+            (Core.Organic.ColumnEnd.Square, "Placa quadrada", "Square plate"),
+            (Core.Organic.ColumnEnd.Plate, "Prato (abre a partir do fuste)", "Plate (flares from the shaft)"));
     }
 }

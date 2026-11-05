@@ -105,6 +105,15 @@ public sealed class Scene3
         return this;
     }
 
+    /// <summary>Malha indexada qualquer (ex.: peças orgânicas). Respeita o limite de triângulos.</summary>
+    public Scene3 Triangles(IReadOnlyList<Vec3> vertices, IReadOnlyCollection<(int A, int B, int C)> triangles, string color, double opacity = 1)
+    {
+        if (triangles.Count == 0 || !Reserve(triangles.Count)) return this;
+        var m = Mesh(color, opacity);
+        foreach (var (a, b, c) in triangles) m.AddTriangle(vertices[a], vertices[b], vertices[c]);
+        return this;
+    }
+
     /// <summary>Face plana (contorno externo) — usada para mostrar a parede/piso hospedeiro, semitransparente.</summary>
     public Scene3 Face(Frame3 f, Polygon2 outline, string color, double opacity = 0.35, double z = 0)
     {

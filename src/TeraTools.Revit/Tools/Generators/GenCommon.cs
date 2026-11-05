@@ -253,7 +253,7 @@ public static class GenHost
         return new PolylinePath(pts);
     }
 
-    private static List<Curve> OrderOpenChain(List<Curve> curves)
+    public static List<Curve> OrderOpenChain(List<Curve> curves)
     {
         if (curves.Count <= 1) return curves;
         var pool = new List<Curve>(curves);

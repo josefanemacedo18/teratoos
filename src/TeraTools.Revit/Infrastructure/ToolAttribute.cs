@@ -88,6 +88,7 @@ public static class Modules
     public const string Selection = "selection";
     public const string Analysis = "analysis";
     public const string Generators = "generators";
+    public const string Organic = "organic";
     public const string Geometry = "geometry";
     public const string Floors = "floors";
     public const string Interiors = "interiors";
@@ -103,6 +104,7 @@ public static class Modules
         new(General, new Txt("Geral", "General"), new Txt("Painel, busca, configurações e ajuda", "Panel, search, settings and help"), "#B5652B", "mod.general", 0),
         new(Modeling, new Txt("Modelagem", "Modeling"), new Txt("Distribuir, girar no lugar, seleção avançada e conversão de CAD", "Distribute, rotate in place, advanced selection and CAD conversion"), "#3B7DD8", "mod.modeling", 10),
         new(Generators, new Txt("Geradores", "Generators"), new Txt("Padrões, imagem, brises, quadros espaciais, cinético e temas", "Patterns, image, louvers, space frames, kinetic and themes"), "#8C59C9", "mod.generators", 40),
+        new(Organic, new Txt("Orgânicos", "Organic"), new Txt("Colunas, coberturas e lâminas de formas orgânicas, editáveis por parâmetros", "Organic columns, canopies and fins, editable by parameters"), "#2E8B7A", "mod.organic", 50),
         new(Floors, new Txt("Pisos", "Floors"), new Txt("Pisos, paginação, rodapés e revestimentos", "Floors, tile layout, baseboards and finishes"), "#B08A3E", "mod.floors", 60),
         new(Interiors, new Txt("Interiores", "Interiors"), new Txt("Ambientes, mobiliário, ergonomia, iluminação, forros e paredes", "Rooms, furniture, ergonomics, lighting, ceilings and walls"), "#D07A3A", "mod.interiors", 70),
         new(Joinery, new Txt("Marcenaria", "Joinery"), new Txt("Módulos planejados, detalhamento e plano de corte", "Cabinetry modules, detailing and cutting plans"), "#8A5A35", "mod.joinery", 80),
