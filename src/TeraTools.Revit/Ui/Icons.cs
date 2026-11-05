@@ -108,6 +108,7 @@ public static class Icons
         ["join.rules"] = "s:M5,16 A5,5 0 1 1 4.99,16 Z;a:M10,16 H28 M24,16 V20 M28,16 V21",
 
         // ---------- Materiais
+        ["join.free"] = "f:M4,3 H28 V29 H4 Z;s:M16,3 V29 M4,12 H16 M16,20 H28;F:M6,22 H14 V27 H6 Z;a:M19,7 V14 M24,23 H25",
         ["mat.catalog"] = "f:M5,3 H25 V29 H5 Z;s:M9,3 V29;F:M12,7 H18 V13 H12 Z;g:M19,7 H22 V13 H19 Z;a:M12,17 H22 M12,21 H22 M12,25 H18",
         ["mat.catalogapply"] = "f:M3,14 L14,8 L29,14 L18,20 Z;F:M8,14 L14,11 L22,14 L16,17 Z;a:M20,3 L26,9 M26,3 V9 H20",
         ["mat.catalogqty"] = "F:M4,5 H14 V15 H4 Z;f:M4,18 H14 V28 H4 Z;s:M17,7 H28 M17,12 H28 M17,20 H28;a:M17,25 H28 M22,22 V28",

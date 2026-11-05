@@ -311,6 +311,7 @@ internal static class GenRegistry
         ["gen.image"] = ImageCommand.Regenerate,
         ["gen.brise"] = BriseCommand.Regenerate,
         ["gen.spaceframe"] = SpaceFrameCommand.Regenerate,
+        ["join.free"] = Joinery.FreeCabinetCommand.Regenerate,
         ["gen.kinetic"] = KineticCommand.Regenerate,
         ["wall.slats"] = Interiors.SlatsCommand.Regenerate,
         ["wall.boiserie"] = Interiors.BoiserieCommand.Regenerate,

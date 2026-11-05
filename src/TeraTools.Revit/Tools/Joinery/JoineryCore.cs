@@ -181,6 +181,14 @@ public sealed class ModuleOptions
 }
 
 /// <summary>Registro salvo no projeto para cada módulo (permite editar e gerar a lista de corte).</summary>
+/// <summary>Registro de um móvel livre (construtor por vãos).</summary>
+public sealed class FreeRecord
+{
+    public FreeDesign Design { get; set; } = new();
+    public bool FreeForm { get; set; }
+    public bool Assembly { get; set; } = true;
+}
+
 public sealed class ModuleRecord
 {
     public CabinetSpec Spec { get; set; } = new();
@@ -223,6 +231,7 @@ public sealed class ModuleContext
 internal static class JoineryGen
 {
     public const string ToolModule = "join.module";
+    public const string ToolFree = "join.free";
     public const string ToolExtras = "join.extras";
     public const string RulesKey = "joinery.rules";
 
@@ -268,19 +277,31 @@ internal static class JoineryGen
     }
 
     /// <summary>Cria as peças do módulo (e o conjunto). Usa um grupo de transações (um único Desfazer).</summary>
-    public static List<ElementId> Generate(ToolContext ctx, ModuleRecord rec, ModuleContext mc, string systemId)
+    public static List<ElementId> Generate(ToolContext ctx, ModuleRecord rec, ModuleContext mc, string systemId) =>
+        GenerateModel(ctx, CabinetBuilder.Build(rec.Spec, Rules(ctx.Doc)), rec.Spec.Code,
+            $"{rec.Spec.Code} - {(string.IsNullOrWhiteSpace(rec.Spec.Name) ? JoineryNames.Kind(rec.Spec.Kind) : rec.Spec.Name)}",
+            rec.Spec.Elevation, rec.FreeForm, rec.Assembly, mc, systemId, ToolModule, rec, $"{rec.Spec.Code} {JoineryNames.Kind(rec.Spec.Kind)}");
+
+    /// <summary>Móvel livre: mesmas peças TT_Chapa, conjunto e registro (editável depois).</summary>
+    public static List<ElementId> Generate(ToolContext ctx, FreeRecord rec, ModuleContext mc, string systemId) =>
+        GenerateModel(ctx, FreeBuilder.Build(rec.Design, Rules(ctx.Doc)), rec.Design.Code,
+            $"{rec.Design.Code} - {(string.IsNullOrWhiteSpace(rec.Design.Name) ? Loc.T("Móvel livre", "Free joinery") : rec.Design.Name)}",
+            rec.Design.Elevation, rec.FreeForm, rec.Assembly, mc, systemId, ToolFree, rec, $"{rec.Design.Code} {Loc.T("Móvel livre", "Free joinery")}");
+
+    /// <summary>Cria as peças de um modelo de marcenaria (e o conjunto) e registra o sistema para edição.</summary>
+    public static List<ElementId> GenerateModel(ToolContext ctx, CabinetModel model, string code, string assemblyName, double elevation,
+        bool freeForm, bool assembly, ModuleContext mc, string systemId, string toolId, object record, string systemName)
     {
         var doc = ctx.Doc;
-        var model = CabinetBuilder.Build(rec.Spec, Rules(doc));
-        foreach (var w in model.Warnings) ctx.Report.Warn(rec.Spec.Code + ": " + w);
+        foreach (var w in model.Warnings.Distinct()) ctx.Report.Warn(code + ": " + w);
         var frame = mc.Frame();
-        var sink = new BoxSink(ctx, rec.FreeForm ? GenOutput.FreeForm : GenOutput.Parametric, BoxKind.Board, systemId, null, BuiltInCategory.OST_Casework)
+        var sink = new BoxSink(ctx, freeForm ? GenOutput.FreeForm : GenOutput.Parametric, BoxKind.Board, systemId, null, BuiltInCategory.OST_Casework)
         {
-            Name = "TT " + rec.Spec.Code,
+            Name = "TT " + code,
         };
         sink.Prepare();
         var created = new List<ElementId>();
-        ctx.Modify(rec.Spec.Code, () =>
+        ctx.Modify(code, () =>
         {
             GenSystem.BindParams(doc, ctx.Report);
             try
@@ -296,13 +317,14 @@ internal static class JoineryGen
             for (var i = 0; i < model.Boards.Count; i++)
             {
                 var b = model.Boards[i];
-                sink.Add(ToWorld(frame, b.Placement, rec.Spec.Elevation), b.Material, i, e => WriteBoard(e, b, rec.Spec.Code));
+                sink.Add(ToWorld(frame, b.Placement, elevation), b.Material, i, e => WriteBoard(e, b, code));
             }
             sink.Finish();
-            GenSystem.Register(doc, systemId, ToolModule, rec, mc, $"{rec.Spec.Code} {JoineryNames.Kind(rec.Spec.Kind)}");
+            ctx.RequireCreated(sink.Created.Count, "peças de marcenaria", "joinery pieces");
+            GenSystem.Register(doc, systemId, toolId, record, mc, systemName);
             created.AddRange(sink.Created);
         });
-        if (rec.Assembly && !rec.FreeForm && created.Count > 0)
+        if (assembly && !freeForm && created.Count > 0)
         {
             AssemblyInstance? ai = null;
             try
@@ -310,11 +332,11 @@ internal static class JoineryGen
                 ctx.Modify(Loc.T("Criar conjunto", "Create assembly"), () =>
                 {
                     ai = AssemblyInstance.Create(doc, created, new ElementId(BuiltInCategory.OST_Casework));
-                    GenSystem.Mark(ai, systemId, ToolModule, -1);
+                    GenSystem.Mark(ai, systemId, toolId, -1);
                 });
                 ctx.Modify(Loc.T("Nomear conjunto", "Name assembly"), () =>
                 {
-                    var baseName = $"{rec.Spec.Code} - {(string.IsNullOrWhiteSpace(rec.Spec.Name) ? JoineryNames.Kind(rec.Spec.Kind) : rec.Spec.Name)}";
+                    var baseName = assemblyName;
                     for (var k = 0; k < 50; k++)
                     {
                         try
@@ -332,11 +354,11 @@ internal static class JoineryGen
             }
             catch (Exception ex)
             {
-                ctx.Report.Info(Loc.F("{0}: conjunto não criado ({1}); as peças foram mantidas.", "{0}: assembly not created ({1}); pieces were kept.", rec.Spec.Code, ex.Message));
+                ctx.Report.Info(Loc.F("{0}: conjunto não criado ({1}); as peças foram mantidas.", "{0}: assembly not created ({1}); pieces were kept.", code, ex.Message));
             }
         }
         foreach (var h in model.Hardware)
-            ctx.Report.Info(Loc.F("{0}: {1} × {2} {3}", "{0}: {1} × {2} {3}", rec.Spec.Code, h.Quantity, h.Name, h.Spec));
+            ctx.Report.Info(Loc.F("{0}: {1} × {2} {3}", "{0}: {1} × {2} {3}", code, h.Quantity, h.Name, h.Spec));
         return created;
     }
 
@@ -389,10 +411,22 @@ internal static class JoineryGen
                 {
                     entry = null;
                     var sys = ProjectStorage.GetSystem(doc, gg.SystemId);
-                    if (sys?.ToolId == ToolModule)
+                    try
                     {
-                        var rec = Json.Deserialize<ModuleRecord>(sys.OptionsJson);
-                        if (rec != null) entry = (CabinetBuilder.Build(rec.Spec, rules), rec.Spec.Code);
+                        if (sys?.ToolId == ToolModule)
+                        {
+                            var rec = Json.Deserialize<ModuleRecord>(sys.OptionsJson);
+                            if (rec != null) entry = (CabinetBuilder.Build(rec.Spec, rules), rec.Spec.Code);
+                        }
+                        else if (sys?.ToolId == ToolFree)
+                        {
+                            var rec = Json.Deserialize<FreeRecord>(sys.OptionsJson);
+                            if (rec != null) entry = (FreeBuilder.Build(rec.Design, rules), rec.Design.Code);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        report.Warn(Loc.F("Registro do móvel {0} não pôde ser lido ({1}); as peças entram pela medida.", "Record {0} could not be read ({1}).", gg.SystemId, ex.Message));
                     }
                     models[gg.SystemId] = entry;
                 }

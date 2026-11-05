@@ -139,3 +139,20 @@ public class FreeCabinetTests
         Assert.True(c.IsLeaf);
     }
 }
+
+public class FreeCabinetSerializationTests
+{
+    [Fact]
+    public void DesenhoSobreviveAGravacaoNoProjeto()
+    {
+        var d = FreeDesign.FromTemplate(3);
+        d.Root.Children[1].Children[1].FrontMaterial = "Laca verde";
+        var json = TeraTools.Core.Serialization.Json.Serialize(d, typeof(FreeDesign), indented: false);
+        var back = TeraTools.Core.Serialization.Json.Deserialize<FreeDesign>(json)!;
+        Assert.Equal(d.Root.All().Count(), back.Root.All().Count());
+        Assert.Equal(d.Root.All().Select(c => c.Id), back.Root.All().Select(c => c.Id));
+        Assert.Equal("Laca verde", back.Root.Children[1].Children[1].FrontMaterial);
+        Assert.Equal(FreeBuilder.Build(d).Boards.Count, FreeBuilder.Build(back).Boards.Count);
+        Assert.Equal(d.Root.Door, back.Root.Door);
+    }
+}

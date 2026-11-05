@@ -39,9 +39,8 @@ internal static class JoineryUi
         {
             foreach (var s in ProjectStorage.GetSection<ProjectStorage.GeneratedSystems>(doc, ProjectStorage.SectionSystems).Systems.Values)
             {
-                if (s.ToolId != JoineryGen.ToolModule) continue;
-                var rec = Json.Deserialize<ModuleRecord>(s.OptionsJson);
-                if (rec != null) used.Add(rec.Spec.Code);
+                if (s.ToolId == JoineryGen.ToolModule && Json.Deserialize<ModuleRecord>(s.OptionsJson) is { } rec) used.Add(rec.Spec.Code);
+                else if (s.ToolId == JoineryGen.ToolFree && Json.Deserialize<FreeRecord>(s.OptionsJson) is { } fr) used.Add(fr.Design.Code);
             }
         }
         catch
@@ -141,12 +140,27 @@ internal static class JoineryUi
         return (g.SystemId, rec, mc);
     }
 
+    private static bool IsJoineryTool(string? toolId) => toolId is JoineryGen.ToolModule or JoineryGen.ToolFree;
+
     private static bool IsModuleElement(Element e)
     {
-        if (ProjectStorage.ReadGenerated(e) is { } g) return ProjectStorage.GetSystem(e.Document, g.SystemId)?.ToolId == JoineryGen.ToolModule;
+        if (ProjectStorage.ReadGenerated(e) is { } g) return IsJoineryTool(ProjectStorage.GetSystem(e.Document, g.SystemId)?.ToolId);
         if (e.AssemblyInstanceId != ElementId.InvalidElementId && e.Document.GetElement(e.AssemblyInstanceId) is { } a)
-            return ProjectStorage.ReadGenerated(a) is { } ga && ProjectStorage.GetSystem(e.Document, ga.SystemId)?.ToolId == JoineryGen.ToolModule;
+            return ProjectStorage.ReadGenerated(a) is { } ga && IsJoineryTool(ProjectStorage.GetSystem(e.Document, ga.SystemId)?.ToolId);
         return false;
+    }
+
+    /// <summary>Escolhe um módulo ou móvel livre (peça ou conjunto) e devolve o registro.</summary>
+    public static (string SystemId, ProjectStorage.GeneratedSystem System) PickJoinery(ToolContext ctx)
+    {
+        var doc = ctx.Doc;
+        Element? e = ctx.Selected().FirstOrDefault(IsModuleElement);
+        e ??= ctx.PickElement("Escolha uma peça ou o conjunto do móvel", "Pick a piece or the furniture assembly", IsModuleElement);
+        if (e.AssemblyInstanceId != ElementId.InvalidElementId && ProjectStorage.ReadGenerated(e) == null) e = doc.GetElement(e.AssemblyInstanceId);
+        var g = ProjectStorage.ReadGenerated(e!) ?? throw new ToolException(Loc.T("O elemento não pertence a um móvel do Téra Tools.", "The element is not part of a Téra Tools piece of furniture."));
+        var sys = ProjectStorage.GetSystem(doc, g.SystemId);
+        if (sys == null || !IsJoineryTool(sys.ToolId)) throw new ToolException(Loc.T("Registro do móvel não encontrado no projeto.", "Furniture record not found in the project."));
+        return (g.SystemId, sys);
     }
 
     public static void Regenerate(ToolContext ctx, string optionsJson, string contextJson, string systemId)
@@ -425,7 +439,15 @@ public sealed class EditModuleCommand : ToolCommand
 {
     public override void Run(ToolContext ctx)
     {
-        var (id, rec, mc) = JoineryUi.PickModule(ctx);
+        var (id, sys) = JoineryUi.PickJoinery(ctx);
+        var mc = Json.Deserialize<ModuleContext>(sys.ContextJson) ?? throw new ToolException(Loc.T("Posição do móvel inválida.", "Invalid position."));
+        if (sys.ToolId == JoineryGen.ToolFree)
+        {
+            var fr = Json.Deserialize<FreeRecord>(sys.OptionsJson) ?? throw new ToolException(Loc.T("Registro do móvel inválido.", "Invalid record."));
+            FreeCabinetCommand.Edit(ctx, id, fr, mc);
+            return;
+        }
+        var rec = Json.Deserialize<ModuleRecord>(sys.OptionsJson) ?? throw new ToolException(Loc.T("Registro do módulo inválido.", "Invalid module record."));
         JoineryUi.Edit(ctx, id, rec, mc);
     }
 }
