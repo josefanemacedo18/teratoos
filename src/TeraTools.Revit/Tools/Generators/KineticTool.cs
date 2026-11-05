@@ -332,7 +332,7 @@ internal static class GenRegistry
 
 [Transaction(TransactionMode.Manual)]
 [Tool("gen.edit", Modules.Generators, "Editar sistema gerado", "Edit generated system", Order = 90,
-    DescPt = "Reabre as opções de qualquer padrão, mosaico, brise, quadro espacial ou cinético gerado e o regenera no mesmo lugar.",
+    DescPt = "Reabre as opções de qualquer sistema gerado (padrão, mosaico, brise, quadro espacial, cinético, ripado, boiserie, marcenaria, colunas, cobertura, lâminas) e o regenera no mesmo lugar — ou volta a uma versão anterior.",
     DescEn = "Reopens the options of any generated pattern, mosaic, louver, space frame or kinetic set and regenerates it in place.",
     HelpPt = "Selecione um elemento criado por um gerador. As opções usadas na criação são carregadas; ao confirmar, o sistema antigo é substituído (tudo em um único Desfazer).",
     HelpEn = "Select an element created by a generator. The options used at creation are loaded; on confirm, the old system is replaced (single Undo).",
@@ -344,7 +344,27 @@ public sealed class EditGeneratedCommand : ToolCommand
         var (id, sys) = GenRegistry.PickSystem(ctx);
         if (!GenRegistry.Regenerators.TryGetValue(sys.ToolId, out var regen))
             throw new ToolException(Loc.F("Sistemas de \"{0}\" não podem ser regenerados.", "Systems from \"{0}\" cannot be regenerated.", sys.ToolId));
-        ctx.Group(ctx.Tool.Name, () => regen(ctx, sys.OptionsJson, sys.ContextJson, id));
+        var options = sys.OptionsJson;
+        var context = sys.ContextJson;
+        // Histórico: editar a versão atual ou voltar a uma anterior.
+        if (sys.History is { Count: > 0 })
+        {
+            var choice = Msg.Choose(Loc.F("\"{0}\" tem {1} versão(ões) anterior(es) guardada(s).", "\"{0}\" has {1} previous version(s).", sys.Name ?? sys.ToolId, sys.History.Count),
+                ctx.Tool.Name, Loc.T("Editar a versão atual", "Edit the current version"), Loc.T("Voltar a uma versão anterior…", "Go back to a previous version…"));
+            if (choice < 0) ctx.Cancel();
+            if (choice == 1)
+            {
+                var rev = Pick.One(sys.History, r => r.Date.ToString("dd/MM/yyyy HH:mm", Loc.Culture),
+                    Loc.T("Versões anteriores", "Previous versions"), Loc.T("Escolha a versão: as opções dela abrem para você conferir antes de regenerar.", "Pick a version: its options open for review."),
+                    ctx.Owner, r => Loc.F("gerador v{0}", "generator v{0}", r.Version));
+                if (rev == null) ctx.Cancel();
+                options = rev!.OptionsJson;
+                context = rev.ContextJson;
+                ctx.Report.Info(Loc.F("Regenerado a partir da versão de {0}.", "Regenerated from the {0} version.", rev.Date.ToString("dd/MM/yyyy HH:mm", Loc.Culture)));
+            }
+        }
+        GenSystem.NoticeVersion(ctx, sys);
+        ctx.Group(ctx.Tool.Name, () => regen(ctx, options, context, id));
     }
 }
 

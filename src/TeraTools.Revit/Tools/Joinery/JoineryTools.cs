@@ -440,6 +440,7 @@ public sealed class EditModuleCommand : ToolCommand
     public override void Run(ToolContext ctx)
     {
         var (id, sys) = JoineryUi.PickJoinery(ctx);
+        GenSystem.NoticeVersion(ctx, sys);
         var mc = Json.Deserialize<ModuleContext>(sys.ContextJson) ?? throw new ToolException(Loc.T("Posição do móvel inválida.", "Invalid position."));
         if (sys.ToolId == JoineryGen.ToolFree)
         {

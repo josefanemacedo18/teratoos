@@ -163,8 +163,29 @@ public static class ProjectStorage
         public string OptionsJson { get; set; } = "{}";
         public string ContextJson { get; set; } = "{}";
         public DateTime Created { get; set; } = DateTime.Now;
+        public DateTime Modified { get; set; } = DateTime.Now;
         public string? Name { get; set; }
+
+        /// <summary>Versão do gerador que produziu o sistema (0 = anterior ao versionamento).</summary>
+        public int Version { get; set; }
+
+        /// <summary>Versão do Téra Tools que gravou o registro.</summary>
+        public string? PluginVersion { get; set; }
+
+        /// <summary>Versões anteriores das opções (a mais recente primeiro), para voltar atrás.</summary>
+        public List<SystemRevision> History { get; set; } = new();
     }
+
+    public sealed class SystemRevision
+    {
+        public DateTime Date { get; set; }
+        public int Version { get; set; }
+        public string OptionsJson { get; set; } = "{}";
+        public string ContextJson { get; set; } = "{}";
+    }
+
+    /// <summary>Quantas versões anteriores cada sistema guarda.</summary>
+    public const int MaxHistory = 20;
 
     public const string SectionSystems = "systems";
 
@@ -172,6 +193,16 @@ public static class ProjectStorage
     {
         var s = Load(doc);
         var reg = s.GetSection<GeneratedSystems>(SectionSystems);
+        // Regeneração: a versão anterior vai para o histórico (se as opções mudaram).
+        if (reg.Systems.TryGetValue(systemId, out var prev))
+        {
+            sys.Created = prev.Created;
+            sys.History = prev.History ?? new List<SystemRevision>();
+            if (prev.OptionsJson != sys.OptionsJson || prev.ContextJson != sys.ContextJson)
+                sys.History.Insert(0, new SystemRevision { Date = prev.Modified == default ? prev.Created : prev.Modified, Version = prev.Version, OptionsJson = prev.OptionsJson, ContextJson = prev.ContextJson });
+            if (sys.History.Count > MaxHistory) sys.History.RemoveRange(MaxHistory, sys.History.Count - MaxHistory);
+        }
+        sys.Modified = DateTime.Now;
         reg.Systems[systemId] = sys;
         s.SetSection(SectionSystems, reg);
         Save(doc, s);

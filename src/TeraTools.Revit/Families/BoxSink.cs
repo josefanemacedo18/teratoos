@@ -90,7 +90,27 @@ public static class GenSystem
             OptionsJson = Json.Serialize(options, options.GetType(), indented: false),
             ContextJson = Json.Serialize(context, context.GetType(), indented: false),
             Name = name,
+            Version = GeneratorVersions.For(toolId),
+            PluginVersion = typeof(GenSystem).Assembly.GetName().Version?.ToString(3),
         });
+    }
+
+    /// <summary>
+    /// Avisa quando o sistema foi criado por outra versão do gerador: a regeneração usa a lógica atual
+    /// e o resultado pode ficar diferente do original.
+    /// </summary>
+    public static void NoticeVersion(ToolContext ctx, ProjectStorage.GeneratedSystem sys)
+    {
+        var current = GeneratorVersions.For(sys.ToolId);
+        if (sys.Version == current) return;
+        if (sys.Version == 0)
+        {
+            ctx.Report.Info(Loc.T("Este sistema foi criado por uma versão anterior do plugin. Ao regenerar, a lógica atual é usada e o resultado pode ficar diferente do original (dá para desfazer).",
+                "This system was created by an earlier plugin version. Regenerating uses the current logic and the result may differ."));
+            return;
+        }
+        ctx.Report.Info(Loc.F("Este sistema foi criado com a versão {0} do gerador; a atual é a {1}. Ao regenerar, a lógica atual é usada e o resultado pode ficar diferente do original (dá para desfazer).",
+            "This system was created with generator version {0}; the current one is {1}. Regenerating uses the current logic and the result may differ.", sys.Version, current));
     }
 
     public static int Delete(Document doc, string systemId)
@@ -99,6 +119,24 @@ public static class GenSystem
         if (ids.Count > 0) doc.Delete(ids);
         return ids.Count;
     }
+}
+
+/// <summary>
+/// Versão da lógica de cada gerador. Aumente quando uma mudança altera o resultado de opções iguais,
+/// para os sistemas antigos avisarem ao serem regenerados.
+/// </summary>
+public static class GeneratorVersions
+{
+    private static readonly Dictionary<string, int> Versions = new()
+    {
+        ["gen.pattern"] = 2,      // 0.3.0: contornos limpos, lotes, forma livre no relevo
+        ["gen.spaceframe"] = 2,   // 0.3.0: posição sob a cobertura / acima da base
+        ["join.module"] = 2,      // 0.4.0: puxadores modelados
+        ["join.free"] = 2,        // 0.4.0: puxadores, recuo sob frentes embutidas
+    };
+
+    public static int For(string toolId) => Versions.TryGetValue(toolId, out var v) ? v : 1;
+
 }
 
 /// <summary>
