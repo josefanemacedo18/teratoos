@@ -57,19 +57,6 @@ public static class Services
         }
     }
 
-    /// <summary>Resolve o idioma: configuração do usuário ou idioma do Revit.</summary>
-    public static Language ResolveLanguage(Autodesk.Revit.ApplicationServices.LanguageType revitLanguage)
-    {
-        return Settings.Language switch
-        {
-            "pt" => Language.Portuguese,
-            "en" => Language.English,
-            _ => revitLanguage == Autodesk.Revit.ApplicationServices.LanguageType.Brazilian_Portuguese
-                ? Language.Portuguese
-                // Português também para idiomas não suportados quando o Windows está em pt.
-                : System.Globalization.CultureInfo.CurrentUICulture.Name.StartsWith("pt", StringComparison.OrdinalIgnoreCase)
-                    ? Language.Portuguese
-                    : Language.English,
-        };
-    }
+    /// <summary>A interface do Téra Tools é sempre em português (decisão do projeto), qualquer que seja o idioma do Revit.</summary>
+    public static Language ResolveLanguage(Autodesk.Revit.ApplicationServices.LanguageType revitLanguage) => Language.Portuguese;
 }

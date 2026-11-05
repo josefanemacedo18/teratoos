@@ -150,14 +150,14 @@ public sealed class ErgonomicsCommand : ToolCommand
                 if (t.Found)
                 {
                     circles.Add((circle, true));
-                    ctx.Report.Success(Loc.F("{0}: círculo livre de {1} encontrado.", "{0}: free {1} circle found.", label, U.FormatCm(rules.TurningDiameter)), room.Id.Value);
+                    ctx.Report.Success(Loc.F("{0}: círculo livre de {1} encontrado.", "{0}: free {1} circle found.", label, U.FormatMm(rules.TurningDiameter)), room.Id.Value);
                 }
                 else
                 {
                     issues.Add(new ErgonomicIssue
                     {
                         Kind = Loc.T("Manobra", "Turning"),
-                        Message = Loc.F("{0}: não há círculo livre de {1} (referência).", "{0}: no free {1} circle (reference).", label, U.FormatCm(rules.TurningDiameter)),
+                        Message = Loc.F("{0}: não há círculo livre de {1} (referência).", "{0}: no free {1} circle (reference).", label, U.FormatMm(rules.TurningDiameter)),
                         ElementIds = { room.Id.Value },
                         Location = region.Outer.Centroid,
                     });

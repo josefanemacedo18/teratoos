@@ -30,9 +30,6 @@ public sealed class PaneCommand : ToolCommand
 /// <summary>Opções editáveis das configurações globais.</summary>
 public sealed class SettingsOptions
 {
-    [Opt("Idioma", "Language", Group = "Interface|Interface", Tip = "Vale após reiniciar o Revit.|Takes effect after restarting Revit.")]
-    public LanguageChoice Language { get; set; } = LanguageChoice.Auto;
-
     [Opt("Mostrar painel ao abrir o Revit", "Show panel when Revit starts", Group = "Interface|Interface")]
     public bool ShowPaneOnStartup { get; set; } = true;
 
@@ -70,13 +67,6 @@ public sealed class SettingsOptions
     public bool VerboseLog { get; set; }
 }
 
-public enum LanguageChoice
-{
-    [Text("Automático (idioma do Revit)", "Automatic (Revit language)")] Auto,
-    [Text("Português (Brasil)", "Portuguese (Brazil)")] Portuguese,
-    [Text("Inglês", "English")] English,
-}
-
 public enum CsvSeparatorChoice
 {
     [Text("Automático (; em português)", "Automatic (; in Portuguese)")] Auto,
@@ -87,11 +77,11 @@ public enum CsvSeparatorChoice
 
 [Transaction(TransactionMode.Manual)]
 [Tool("general.settings", Modules.General, "Configurações", "Settings", Order = 10, RequiresDocument = false,
-    DescPt = "Idioma, painel, limites de desempenho, pastas e exportação.",
+    DescPt = "Painel, limites de desempenho, pastas e exportação.",
     DescEn = "Language, panel, performance limits, folders and export.",
     HelpPt = "Configurações globais valem para todos os projetos e ficam em %AppData%\\TeraTools.\nAs configurações por projeto ficam em Projeto › Dados e padrões do projeto.",
     HelpEn = "Global settings apply to all projects and are stored in %AppData%\\TeraTools.\nPer-project settings are in Project › Project data and standards.",
-    Keywords = "configuracoes opcoes idioma language preferences")]
+    Keywords = "configuracoes opcoes preferencias limites pastas")]
 public sealed class SettingsCommand : ToolCommand
 {
     public override void Run(ToolContext ctx)
@@ -99,7 +89,6 @@ public sealed class SettingsCommand : ToolCommand
         var s = ctx.Settings;
         var o = new SettingsOptions
         {
-            Language = s.Language switch { "pt" => LanguageChoice.Portuguese, "en" => LanguageChoice.English, _ => LanguageChoice.Auto },
             ShowPaneOnStartup = s.ShowPaneOnStartup,
             PaneShowDescriptions = s.PaneShowDescriptions,
             RecentMax = s.RecentMax,
@@ -113,10 +102,9 @@ public sealed class SettingsCommand : ToolCommand
             CsvSeparator = s.CsvSeparator switch { ";" => CsvSeparatorChoice.Semicolon, "," => CsvSeparatorChoice.Comma, "tab" => CsvSeparatorChoice.Tab, _ => CsvSeparatorChoice.Auto },
             VerboseLog = s.VerboseLog,
         };
-        var oldLang = s.Language;
         if (!OptionsDialog.ShowStandalone(ctx.HasDocument ? ctx.Doc : null, o, ctx.Tool.Name, ctx.Tool.Description, "general.settings", ctx.Owner, Loc.T("Salvar", "Save")))
             ctx.Cancel();
-        s.Language = o.Language switch { LanguageChoice.Portuguese => "pt", LanguageChoice.English => "en", _ => "auto" };
+        s.Language = "pt";
         s.ShowPaneOnStartup = o.ShowPaneOnStartup;
         s.PaneShowDescriptions = o.PaneShowDescriptions;
         s.RecentMax = o.RecentMax;
@@ -130,8 +118,6 @@ public sealed class SettingsCommand : ToolCommand
         s.CsvSeparator = o.CsvSeparator switch { CsvSeparatorChoice.Semicolon => ";", CsvSeparatorChoice.Comma => ",", CsvSeparatorChoice.Tab => "tab", _ => "auto" };
         s.VerboseLog = o.VerboseLog;
         Services.SaveSettings();
-        if (oldLang != s.Language)
-            Msg.Info(Loc.T("O novo idioma será aplicado na próxima vez que o Revit for aberto.", "The new language will apply the next time Revit starts."));
     }
 }
 

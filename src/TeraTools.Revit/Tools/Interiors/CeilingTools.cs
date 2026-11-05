@@ -310,7 +310,7 @@ public sealed class CoveCommand : ToolCommand
                 }
             }
         }
-        pm.Info = Loc.F("Rebaixo {0} · central {1} · faixa {2}", "Drop {0} · center {1} · band {2}", U.FormatM(o.BandHeight), U.FormatM(o.CenterHeight), U.FormatCm(o.BandWidth));
+        pm.Info = Loc.F("Rebaixo {0} · central {1} · faixa {2}", "Drop {0} · center {1} · band {2}", U.FormatM(o.BandHeight), U.FormatM(o.CenterHeight), U.FormatMm(o.BandWidth));
         return pm;
     }
 }

@@ -510,7 +510,7 @@ public sealed class PagingCommand : ToolCommand
                 var label = Lookup.ElementLabel(job.Host) + $" [{job.Host.Id.Value}]";
                 summary.Add(result.Summary(label));
                 foreach (var sl in result.Slivers.Take(50))
-                    ctx.Report.Warn(Loc.F("{0}: recorte de {1} (abaixo do mínimo).", "{0}: {1} cut (below minimum).", label, U.FormatCm(sl.MinPieceSize)), job.Host.Id.Value);
+                    ctx.Report.Warn(Loc.F("{0}: recorte de {1} (abaixo do mínimo).", "{0}: {1} cut (below minimum).", label, U.FormatMm(sl.MinPieceSize)), job.Host.Id.Value);
                 var pieceCount = result.FullCount + result.CutCount;
                 if (pieceCount > ctx.Settings.ElementWarningThreshold * 2)
                 {

@@ -724,7 +724,8 @@ internal sealed class NumberEditor : FieldEditor
         {
             OptKind.Angle => "°",
             OptKind.Percent => "%",
-            OptKind.Length when doc == null => "mm",
+            // Medidas sempre em milímetros (decisão do projeto), qualquer que seja a unidade do projeto.
+            OptKind.Length => "mm",
             _ => "",
         };
         if (suffix.Length > 0)
@@ -751,17 +752,6 @@ internal sealed class NumberEditor : FieldEditor
         switch (_kind)
         {
             case OptKind.Length:
-                if (_doc != null)
-                {
-                    try
-                    {
-                        return UnitFormatUtils.Format(_doc.GetUnits(), SpecTypeId.Length, v, true);
-                    }
-                    catch
-                    {
-                        // cai no formato em mm
-                    }
-                }
                 return U.ToMm(v).ToString("0.##", Loc.Culture);
             case OptKind.Integer:
                 return Math.Round(v).ToString("0", Loc.Culture);
@@ -781,17 +771,7 @@ internal sealed class NumberEditor : FieldEditor
         value = 0;
         if (_kind == OptKind.Length)
         {
-            if (_doc != null)
-            {
-                try
-                {
-                    if (UnitFormatUtils.TryParse(_doc.GetUnits(), SpecTypeId.Length, text, out value)) return CheckRange(value, out error);
-                }
-                catch
-                {
-                    // tenta o leitor próprio
-                }
-            }
+            // Número sozinho = mm. Aceita também "1,20 m", "120 cm", "1200 mm".
             if (U.TryParseLength(text, LengthUnit.Millimeters, out value)) return CheckRange(value, out error);
             error = Loc.T("comprimento inválido", "invalid length");
             return false;
