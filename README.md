@@ -2,14 +2,15 @@
 
 Plugin para **arquitetura de interiores, marcenaria e documentação** no Autodesk Revit 2027, com geradores paramétricos inspirados no Pixy Tools. Ele cria **elementos BIM editáveis**: pisos, forros, paredes, famílias paramétricas e tabelas nativas do Revit. Nada fica "morto" no modelo.
 
-- **80 ferramentas** em **11 módulos**, numa aba própria chamada **Téra Tools** e num painel lateral com busca
+- **84 ferramentas** em **11 módulos**, numa aba própria chamada **Téra Tools** e num painel lateral com busca
 - Sem ferramentas repetidas: tudo o que o Revit já faz nativamente com a mesma precisão foi retirado (veja [docs/AUDITORIA.md](docs/AUDITORIA.md))
 - **Pré-visualização 3D** nos geradores, na marcenaria, nos forros, na iluminação e nas paredes: você gira, aproxima e vê o resultado **antes** de aplicar
-- Português e inglês
+- Interface **100% em português** e **medidas sempre em milímetros**
+- **Catálogo de acabamentos** do projeto (pisos, revestimentos, pinturas, rodapés, forros) com planilha CSV, e **marcenaria livre** para montar qualquer móvel por vãos
 - Cada operação vira **um único Desfazer** (Ctrl+Z) e termina com um **relatório** que pode ser exportado para Excel, CSV ou HTML
 - Presets reutilizáveis (pessoais, do projeto ou da equipe), histórico de operações e ajuda em cada ferramenta
 
-> **Situação atual: versão 0.2.0.** O código foi compilado contra a API oficial do Revit 2027, e os testes automáticos do núcleo passam (132 testes). Esta versão corrige o erro **"Object of type 'System.Double' cannot be converted to type 'System.Int32'"** e os fechamentos do Revit causados por ele (a explicação está em [docs/AUDITORIA.md](docs/AUDITORIA.md)). O plugin ainda **não foi executado dentro do Revit**: o ambiente onde ele foi desenvolvido não tem o Revit. Se aparecer algum erro, siga as instruções de [Quando algo der errado](#quando-algo-der-errado) para que ele seja corrigido.
+> **Situação atual: versão 0.3.0.** Compilado contra a API oficial do Revit 2027; os testes automáticos do núcleo passam (199 testes). Esta versão corrige as causas de "cliquei em gerar e não gerou" (gerador de padrões, quadro espacial, pisos, paginação, forros) e acrescenta o catálogo de acabamentos, seis padrões de assentamento, a marcenaria livre e as referências da NBR 9050:2020. O plugin ainda **não foi executado dentro do Revit** neste ambiente de desenvolvimento: se aparecer algum erro, siga [Quando algo der errado](#quando-algo-der-errado).
 
 ---
 
@@ -55,8 +56,9 @@ Você não precisa saber programar. O GitHub compila o plugin sozinho a cada atu
    2. Ajuste as opções no diálogo. Muitos diálogos têm **pré-visualização em 2D e 3D** (arraste para girar, botão direito para mover, roda do mouse para aproximar, duplo clique para enquadrar), e você pode **salvar presets**.
    3. Confirme. Tudo é feito numa única operação: se não gostar, **Ctrl+Z** desfaz tudo de uma vez.
    4. Leia o **relatório**: ele mostra o que foi criado, avisos e tabelas, e pode **selecionar os elementos** citados ou **exportar para Excel**.
-3. Nos campos de medida, um número sozinho usa a unidade do projeto. Você também pode escrever a unidade: `1,20 m`, `120 cm` ou `1200 mm`.
-4. Para mudar o idioma, os limites de desempenho e as pastas, use **Geral ▸ Configurações**.
+3. Nos campos de medida, um número sozinho é em **milímetros**. Você também pode escrever a unidade: `1,20 m` ou `120 cm`.
+4. Para mudar os limites de desempenho e as pastas, use **Geral ▸ Configurações**.
+5. Se uma ferramenta não conseguir criar algo, o relatório diz **quantos itens falharam e o motivo informado pelo Revit**. Se nada for criado, aparece uma mensagem com o motivo, em vez de terminar em silêncio.
 
 **Recomendação:** nos primeiros usos, teste numa **cópia** do seu projeto.
 
@@ -69,12 +71,12 @@ O guia completo está em [docs/GUIA.md](docs/GUIA.md), e a lista de todas as fer
 | Módulo | Ferramentas | Destaques |
 |---|---|---|
 | Geral | 4 | Painel com busca, favoritos, recentes e histórico; configurações; ajuda; diagnóstico e pasta de logs |
-| Modelagem | 5 | **Filtro avançado** (categoria, família, tipo, material, parâmetro, ambiente, nível), elementos do ambiente, **distribuir pelo ponto de inserção**, **girar cada elemento no lugar**, converter linhas/CAD em elementos |
-| Geradores | 10 | **Gerador de padrões no estilo Pixy** (hexágono, Voronoi, estrela, círculos, losangos, triângulos, quadrados, ondas e tijolos, com fade e furos reais), imagem para blocos, brises, quadro espacial, painéis cinéticos, paletas, colorir por parâmetro, **gerador de temas de vista** |
-| Pisos | 9 | **Floor Tracer, Splitter, Merger e Filler**, faixas e soleiras, **paginação com juntas e ponto de partida**, rodapés, quantitativo de peças e caixas, vistas de paginação |
-| Interiores | 23 | Ambientes (numerar, códigos, parâmetros, verificação, vistas), mobiliário e layouts, **ergonomia e acessibilidade com regras editáveis**, iluminação, forros e sancas, pintura, revestimentos, ripado e boiserie |
-| Marcenaria | 7 | **Módulos paramétricos** (armários, aéreos, torres, nichos, roupeiros, gabinetes, ilhas), composição na parede, detalhamento, **plano de corte, ferragens, Excel/CSV e nesting** |
-| Materiais | 4 | Biblioteca pessoal, acabamentos por ambiente, substituir, ficha técnica com relatório de uso |
+| Modelagem | 5 | **Filtro avançado** (categoria, família, tipo, material, parâmetro, ambiente, nível), elementos do ambiente, **distribuir pelo ponto de inserção**, **girar cada elemento no lugar**, converter linhas/CAD em pisos e forros (com furos) |
+| Geradores | 10 | **Gerador de padrões no estilo Pixy** (hexágono, Voronoi, estrela, círculos, losangos, triângulos, quadrados, ondas e tijolos, com fade e furos reais), imagem para blocos, brises, **quadro espacial** (sob a cobertura ou acima da base), painéis cinéticos, paletas, colorir por parâmetro, gerador de temas |
+| Pisos | 9 | Floor Tracer, Splitter, Merger e Filler, faixas e soleiras, **paginação com 13 padrões** (alinhada, amarração, diagonal, espinha de peixe, **chevron**, trama, **hexágono**, **octógono com taco**, **opus romano**, **madeira com réguas aleatórias**, **losangos 3D** e modulares) e **tonalidades do catálogo**, rodapés, quantitativos |
+| Interiores | 23 | Ambientes, mobiliário e layouts, **ergonomia e acessibilidade com referências da NBR 9050:2020** (circulação, manobra, portas, camas, lavatórios, bancadas, tomadas e interruptores), iluminação, forros e sancas, pintura, revestimentos, ripado e boiserie |
+| Marcenaria | 8 | **Marcenaria livre** (qualquer móvel por vãos, com todo tipo de porta e gaveta, elevação clicável e 3D), módulos paramétricos, composição na parede, detalhamento, **plano de corte, ferragens, Excel/CSV e nesting** |
+| Materiais | 7 | **Catálogo de acabamentos** no projeto (CSV), **aplicar acabamento do catálogo** nos ambientes, **quantitativo e custo dos acabamentos**, biblioteca pessoal, acabamentos por ambiente, substituir, ficha técnica |
 | Documentação | 9 | Conjuntos de plantas, cortes e 3D por ambiente, pranchas automáticas, renumeração, cotas internas, legendas e notas |
 | Quantitativos | 4 | Tabelas (inclusive de ambientes), levantamento em Excel, **orçamento com a sua tabela de preços**, comparação antes × depois |
 | Qualidade | 2 | Verificação do modelo (inclusive geometria) com **regras editáveis em planilha** |

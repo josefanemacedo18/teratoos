@@ -1,6 +1,6 @@
 # Téra Tools — referência das ferramentas
 
-Lista gerada a partir do código-fonte: **80 ferramentas** em 11 módulos. No Revit, cada ferramenta também tem uma página de ajuda (botão **Ajuda** ou tecla **F1** no diálogo, ou no painel Téra).
+Lista gerada a partir do código-fonte: **84 ferramentas** em 11 módulos. No Revit, cada ferramenta também tem uma página de ajuda (botão **Ajuda** ou tecla **F1** no diálogo, ou no painel Téra).
 
 ## Índice
 
@@ -9,8 +9,8 @@ Lista gerada a partir do código-fonte: **80 ferramentas** em 11 módulos. No Re
 - [Geradores](#geradores) — Padrões, imagem, brises, quadros espaciais, cinético e temas (10)
 - [Pisos](#pisos) — Pisos, paginação, rodapés e revestimentos (9)
 - [Interiores](#interiores) — Ambientes, mobiliário, ergonomia, iluminação, forros e paredes (23)
-- [Marcenaria](#marcenaria) — Módulos planejados, detalhamento e plano de corte (7)
-- [Materiais](#materiais) — Biblioteca, aplicação e especificação de materiais (4)
+- [Marcenaria](#marcenaria) — Módulos planejados, detalhamento e plano de corte (8)
+- [Materiais](#materiais) — Biblioteca, aplicação e especificação de materiais (7)
 - [Documentação](#documentação) — Vistas, pranchas, anotações e exportação (9)
 - [Quantitativos](#quantitativos) — Tabelas, quantitativos e orçamento (4)
 - [Qualidade](#qualidade) — Verificações e regras personalizadas (2)
@@ -36,7 +36,7 @@ Mostra ou oculta o painel lateral com busca, favoritos, recentes e histórico.
 ### Configurações
 `general.settings`
 
-Idioma, painel, limites de desempenho, pastas e exportação.
+Painel, limites de desempenho, pastas e exportação.
 
 > Configurações globais valem para todos os projetos e ficam em %AppData%\TeraTools.
 >
@@ -339,7 +339,7 @@ Lista móveis e equipamentos por ambiente (família, tipo, quantidade), grava o 
 ### Ergonomia e acessibilidade
 `ergo.check` · Verificações
 
-Verifica passagens, área de manobra, áreas de aproximação, abertura de portas e alturas de bancadas com regras editáveis — sem declarar conformidade.
+Verifica passagens, manobra, aproximação, portas (abertura e largura), camas, bancadas, lavatórios, tomadas e interruptores com regras editáveis baseadas na NBR 9050:2020 — sem declarar conformidade.
 
 > As regras são suas: ajuste os valores conforme a norma e a versão adotadas no projeto e salve como preset (pessoal ou do projeto). O relatório lista os pontos de atenção encontrados pelo modelo geométrico; ele NÃO substitui a verificação do profissional e NÃO declara conformidade.
 >
@@ -411,6 +411,23 @@ Gera quadros de moldura (boiserie) em grade sobre uma face, com margens, roda-me
 
 _Módulos planejados, detalhamento e plano de corte_
 
+### Marcenaria livre (construtor)
+`join.free` · Módulos
+
+Monte qualquer móvel: divida a caixa em vãos (colunas e linhas, com medidas fixas ou automáticas) e coloque prateleiras, cabideiro, gavetas e todo tipo de porta — vendo a elevação e o 3D na hora.
+
+> 1. Escolha um modelo para começar ou parta da caixa vazia; em "Caixa, base e materiais" ajuste medidas, base (rodapé, pés, suspenso), tampo, fundo, frentes (sobrepostas ou embutidas), puxadores, corrediças, tampo de bancada e materiais.
+>
+> 2. Clique num vão da elevação e divida-o em colunas ou linhas. Cada vão pode ter largura/altura fixa ou automática.
+>
+> 3. No vão final, escolha prateleiras (reguláveis ou fixas), cabideiro ou gavetas (com frente aparente ou internas).
+>
+> 4. Coloque a frente: porta de abrir (esquerda/direita), duas portas, basculante, escamoteável, de correr ou camarão, com ou sem vidro. Clique de novo no vão para escolher o grupo em volta dele e pôr uma frente que cobre vários vãos.
+>
+> 5. Posicione no projeto: cada peça vira uma família TT_Chapa com medidas de corte, fitas e veio, agrupadas num conjunto.
+>
+> Depois: Marcenaria ▸ Editar módulo reabre o desenho; Plano de corte, Nesting e Detalhamento funcionam igual aos módulos.
+
 ### Módulo de marcenaria
 `join.module` · Módulos
 
@@ -461,6 +478,55 @@ Define as regras do projeto: dobradiças por altura, corrediças, folgas, suport
 ## Materiais
 
 _Biblioteca, aplicação e especificação de materiais_
+
+### Catálogo de acabamentos
+`mat.catalog`
+
+Catálogo próprio do projeto (dentro do .rvt): pisos, revestimentos, pinturas, rodapés e forros com medidas, paginação, tonalidades, fornecedor e preço. Cria os materiais e os tipos no Revit e importa/exporta planilha CSV.
+
+> 1. Cadastre cada acabamento (Novo) ou importe uma planilha CSV. A pré-visualização mostra a amostra com paginação, juntas e tonalidades.
+>
+> 2. Salve no projeto: o plugin cria/atualiza, para cada item, o material (cor, fornecedor, linha, código e preço; hachura com as juntas), os materiais das tonalidades e o tipo correspondente — piso, parede fina (revestimento), rodapé ou forro, com a espessura do item.
+>
+> 3. Use Materiais ▸ Aplicar acabamento do catálogo para colocar o item nos ambientes, e Quantitativo e custo dos acabamentos para o orçamento.
+>
+> Para levar o catálogo a outro projeto: Exportar planilha aqui e Importar planilha lá. O CSV abre no Excel; as colunas têm nomes em português.
+
+### Aplicar acabamento do catálogo
+`mat.catalogapply`
+
+Escolha um acabamento do catálogo e os ambientes: o plugin cria o piso (e pagina com as peças e tonalidades), pinta ou reveste as paredes, cria o forro ou o rodapé — em um passo.
+
+> O que é criado depende da Aplicação do item:
+>
+> • Piso: piso do tipo do item em cada ambiente e, se quiser, paginação com peças reais, juntas e tonalidades.
+>
+> • Parede: pintura das faces voltadas para o ambiente ou revestimento em parede fina (recortando vãos).
+>
+> • Forro: forro do tipo do item na altura escolhida.
+>
+> • Rodapé: rodapé do tipo do item, interrompido nas portas.
+>
+> • Bancada, marcenaria e outros: o material é aplicado aos elementos selecionados.
+>
+> Tudo vira um único Desfazer.
+
+### Quantitativo e custo dos acabamentos
+`mat.catalogqty`
+
+Mede no modelo a área (ou o comprimento) de cada acabamento do catálogo, soma a perda, calcula peças, caixas e o custo — pronto para exportar ao Excel.
+
+> Medição por item:
+>
+> • Piso, parede (revestimento) e forro: área dos elementos do tipo do item ("TT código - nome").
+>
+> • Pintura e outros: área das faces pintadas com o material.
+>
+> • Rodapé: comprimento dos rodapés do tipo do item.
+>
+> • Peças: partes da paginação com o material (ou área ÷ área da peça).
+>
+> Compra = quantidade × (1 + perda). Com m² por caixa ou peças por caixa, arredonda em caixas inteiras. O custo usa o preço e a unidade do item.
 
 ### Biblioteca de materiais
 `mat.library`

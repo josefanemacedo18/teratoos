@@ -42,12 +42,12 @@ Tudo fica em `%AppData%\TeraTools` (use **Geral ▸ Diagnóstico ▸ Abrir a pas
 1. **Seleção:** se já houver elementos válidos selecionados, a ferramenta usa a seleção. Se não, ela pede para você clicar. Para terminar uma seleção múltipla, use **Concluir** na barra de opções do Revit.
 2. **Diálogo de opções:**
    - Os campos são agrupados por assunto. Alguns só aparecem quando fazem sentido; por exemplo, "Espaçamento" só aparece no modo "Por espaçamento".
-   - **Medidas:** um número sozinho usa a unidade do projeto. Você também pode escrever a unidade (`1,20 m`, `120 cm`, `1200 mm`).
+   - **Medidas:** um número sozinho é em **milímetros**. Você também pode escrever a unidade (`1,20 m`, `120 cm`).
    - **Pré-visualização 2D e 3D:** muitos diálogos mostram o resultado, atualizado enquanto você muda as opções, **antes de qualquer alteração no modelo**. Na aba **3D**: arraste com o botão esquerdo para girar, com o botão direito (ou do meio) para mover, use a roda do mouse para aproximar e dê **duplo clique** para enquadrar tudo. A aba **2D** mostra a planta ou a vista frontal com as medidas.
    - **Presets:** salve as opções com um nome para reutilizar. Um preset pode ser **pessoal** (só no seu computador), **do projeto** (fica dentro do .rvt e vai junto com o arquivo) ou de **biblioteca da equipe** (somente leitura, numa pasta compartilhada).
    - O plugin lembra as **últimas opções** que você usou em cada ferramenta.
 3. **Execução:** tudo vira **um único Desfazer**. Avisos do Revit que apareceriam dezenas de vezes são recolhidos e listados no relatório.
-4. **Relatório:** mostra contagens (criados, modificados, ignorados), avisos, erros e tabelas. Nele você pode:
+4. **Relatório:** mostra contagens (criados, modificados, ignorados), avisos, erros e tabelas. Itens que o Revit recusou aparecem agrupados, com a quantidade e o motivo. Se nada for criado, a ferramenta para com uma mensagem explicando por quê. Nele você pode:
    - **selecionar no modelo** os elementos de uma linha;
    - **exportar** para Excel, CSV ou HTML;
    - **copiar** o texto.
@@ -98,6 +98,22 @@ O plugin cria e vincula sozinho os parâmetros `TT_` de que precisa: código, am
 10. **Documentação:** use **Conjunto de plantas**, **Vistas por ambiente** (planta e quatro elevações), **Montar pranchas** e **Cotas internas dos ambientes**. Para etiquetar e exportar PDF/DWG, use os comandos nativos (**Etiquetar todos não etiquetados**, **Exportar ▸ PDF**).
 11. **Quantitativos:** use **Levantamento** e **Orçamento**.
 12. **Qualidade ▸ Verificação de qualidade:** rode antes de cada entrega.
+
+### Catálogo de acabamentos
+
+1. **Materiais ▸ Catálogo de acabamentos:** cadastre cada acabamento (ou importe a planilha CSV). Cada item tem código, nome, tipo, aplicação (piso, parede, forro, rodapé, bancada, marcenaria), fornecedor, linha, cor, medidas da peça, junta e cor da junta, paginação, tonalidades, perda, preço e caixas. A pré-visualização mostra uma amostra de 2,40 × 2,40 m.
+2. **Salvar no projeto** cria ou atualiza no Revit o material (com a hachura das juntas), os materiais das tonalidades e o tipo "TT código - nome" de piso, parede fina, rodapé ou forro.
+3. **Materiais ▸ Aplicar acabamento do catálogo:** escolha o item e os ambientes. Piso → cria o piso e, se quiser, pagina com as peças e as tonalidades. Parede → pinta as faces ou cria o revestimento. Forro e rodapé → criam o elemento do tipo do item.
+4. **Materiais ▸ Quantitativo e custo dos acabamentos:** área ou comprimento no modelo, perda, peças, caixas e custo de cada item.
+5. Para levar o catálogo a outro projeto: **Exportar planilha** aqui e **Importar planilha** lá.
+
+### Marcenaria livre (qualquer móvel)
+
+1. **Marcenaria ▸ Marcenaria livre:** escolha um modelo (ou a caixa vazia) e ajuste **Caixa, base e materiais**.
+2. Clique num vão da elevação e **divida** em colunas ou linhas. Cada vão pode ter medida fixa (mm) ou automática.
+3. No vão final, escolha **prateleiras**, **cabideiro** ou **gavetas** (aparentes ou internas).
+4. Escolha a **frente**: porta de abrir (esquerda/direita), duas portas, basculante, escamoteável, de correr ou camarão, com ou sem vidro. **Clique de novo** num vão para escolher o grupo em volta dele: uma frente no grupo cobre todos os vãos (por exemplo, portas de correr no roupeiro inteiro).
+5. **Posicionar no projeto:** as peças viram famílias TT_Chapa num conjunto. Para mudar depois, use **Marcenaria ▸ Editar módulo**. O plano de corte, as ferragens e o nesting funcionam igual aos módulos.
 
 ### Marcenaria planejada
 

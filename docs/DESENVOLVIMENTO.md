@@ -79,7 +79,9 @@ public sealed class MinhaCommand : ToolCommand
 
 ### Convenções
 
-- **Unidades:** internamente, tudo em pés (unidade do Revit). Use `U.Mm()`, `U.M()`, `U.ToMm()` e similares. Campos `OptKind.Length` aparecem e são digitados na unidade do projeto.
+- **Unidades:** internamente, tudo em pés (unidade do Revit). Use `U.Mm()`, `U.M()`, `U.ToMm()` e similares. Campos `OptKind.Length` aparecem e são digitados sempre em **mm** (aceitam `m` e `cm` escritos). A interface é sempre em português (`Loc.T(pt, en)` continua bilíngue no código).
+- **Falhas por item:** nunca engula exceções de criação. Use `ctx.ItemFailed("o quê", "what", ex)` (agrupa no relatório com o motivo) e `ctx.RequireCreated(n, ...)` para terminar com mensagem clara quando nada foi criado.
+- **Contornos para o Revit:** use `Polygon2.CleanForSketch(tol)` ou funda vértices; nunca pule um segmento curto (o laço fica aberto e o Revit recusa).
 - **Textos:** sempre bilíngues: `Loc.T("pt", "en")` e `Loc.F(...)` com parâmetros. Enums do add-in usam `[Text(pt, en)]`; enums do núcleo são registrados em `Ui/EnumTexts.cs`.
 - **Erros esperados:** use `ToolContext.Fail(pt, en)` ou `throw new ToolException(...)`: mensagem simples, sem detalhes técnicos. Exceções inesperadas abrem a janela de erro com "Copiar detalhes".
 - **Cancelamento:** `ctx.Cancel()`. Esc durante a seleção também cancela.

@@ -4,7 +4,7 @@ Legenda: ✅ implementado · 🟡 implementado com limites (explicados) · ➖ r
 
 Lembrete: tudo foi compilado contra a API do Revit 2027, mas **ainda não foi executado dentro do Revit**. Os primeiros testes reais podem pedir ajustes.
 
-Na versão 0.2.0, cada ferramenta foi auditada ([AUDITORIA.md](AUDITORIA.md)). As que repetiam um comando nativo do Revit com a mesma precisão foram retiradas, e o item correspondente aparece aqui como ➖, com o comando nativo que faz o mesmo.
+Na versão 0.2.0, cada ferramenta foi auditada ([AUDITORIA.md](AUDITORIA.md)); a versão 0.3.0 corrigiu as falhas de geração e acrescentou catálogo, padrões de piso, marcenaria livre e NBR 9050. As que repetiam um comando nativo do Revit com a mesma precisão foram retiradas, e o item correspondente aparece aqui como ➖, com o comando nativo que faz o mesmo.
 
 ## 1. Interface e gerenciamento do plugin
 
@@ -20,10 +20,10 @@ Na versão 0.2.0, cada ferramenta foi auditada ([AUDITORIA.md](AUDITORIA.md)). A
 | Presets reutilizáveis | ✅ | Em todos os diálogos de opções: pessoal, do projeto ou da equipe |
 | Salvar e carregar configurações | ✅ | **Projeto ▸ Presets e bibliotecas** (exportar e importar arquivos) |
 | Pré-visualização antes de aplicar | ✅ | Abas **3D** e **2D** nos diálogos dos geradores, marcenaria, forros, iluminação, ripado, boiserie e distribuição |
-| Mensagens de erro claras e relatórios de execução | ✅ | Relatório ao final de cada operação; janela de erro com "Copiar detalhes" |
+| Mensagens de erro claras e relatórios de execução | ✅ | Relatório ao final de cada operação, com a quantidade de itens que falharam e o motivo informado pelo Revit; aviso quando nada é criado; janela de erro com "Copiar detalhes" |
 | Proteção contra fechamento do Revit | ✅ | Erros do plugin na interface são capturados e mostrados, em vez de derrubar o Revit |
 | Histórico de operações | ✅ | Aba **Histórico** do Painel Téra |
-| Português e inglês | ✅ | Automático pelo idioma do Revit, ou escolhido nas configurações |
+| Idioma | ✅ | Interface 100% em português; medidas sempre em mm |
 | Ajuda contextual | ✅ | Página de ajuda por ferramenta (botão **Ajuda** ou **F1**) e **Geral ▸ Ajuda** |
 
 ## 2. Ferramentas gerais de modelagem
@@ -48,7 +48,7 @@ Na versão 0.2.0, cada ferramenta foi auditada ([AUDITORIA.md](AUDITORIA.md)). A
 | Padrões paramétricos | ✅ | Geradores ▸ Gerador de padrões: **hexágono, Voronoi, estrela (Star Burst), círculos, losangos, triângulos, quadrados, ondas e tijolos**; furos reais (vazio) ou peças em relevo (sólido); proporção de abertura; **fade** linear, radial ou por ruído; variação aleatória de tamanho, rotação, posição e falhas; espessura que acompanha o fade |
 | Imagem para blocos | ✅ | Geradores ▸ Imagem para blocos (relevo e cores em materiais) |
 | Aletas e brises | ✅ | Geradores ▸ Aletas e brises |
-| Quadros espaciais | ✅ | Geradores ▸ Quadro espacial (quadrado sobre quadrado deslocado ou alinhado e triangular, de 2 a 6 camadas, nós esféricos, barras como forma livre, família TT_Bloco ou vigas estruturais do projeto; quantitativo de barras por comprimento) |
+| Quadros espaciais | ✅ | Geradores ▸ Quadro espacial (embaixo da cobertura escolhida ou acima da base, abre a vista 3D criada; quadrado sobre quadrado deslocado ou alinhado e triangular, de 2 a 6 camadas, nós esféricos, barras como forma livre, família TT_Bloco ou vigas estruturais do projeto; quantitativo de barras por comprimento) |
 | Cinético | 🟡 | Painéis cinéticos com estados paramétricos de abertura, editados por **Editar sistema gerado**. Animação em tempo real e simulação física são escopos separados, como previsto no pedido |
 | Temas e acabamentos visuais | ✅ | **Gerador de temas** (claro, croqui, maquete branca, monocromático, realista, técnico ou personalizado, aplicado à vista ativa, a vistas escolhidas ou a cópias), Paleta de cores, Colorir por parâmetro (filtros e legenda) |
 | Resultado como elemento BIM editável | ✅ | Famílias paramétricas TT_Bloco/TT_Chapa, família de padrão própria e **Editar sistema gerado** |
@@ -68,11 +68,11 @@ Na versão 0.2.0, cada ferramenta foi auditada ([AUDITORIA.md](AUDITORIA.md)). A
 
 | Item | Situação | Onde |
 |---|---|---|
-| Pisos por ambiente | ✅ | Pisos ▸ Piso por ambiente (Floor Tracer) |
+| Pisos por ambiente | ✅ | Pisos ▸ Piso por ambiente (Floor Tracer); só pisos de acabamento contam como "já tem piso" (a laje estrutural não conta) |
 | Dividir piso | ✅ | Pisos ▸ Dividir piso (Floor Splitter) |
 | Unir pisos | ✅ | Pisos ▸ Unir pisos (Floor Merger): vários pisos viram um, com o contorno da união |
 | Preencher pisos | ✅ | Pisos ▸ Preencher pisos (Floor Filler): cria piso só onde o ambiente ainda não tem, ou lista as áreas descobertas |
-| Paginação com layouts, juntas e ponto de partida | ✅ | Pisos ▸ Paginação de revestimento (peças reais do Revit, por partes; recusa divisões grandes demais) |
+| Paginação com layouts, juntas e ponto de partida | ✅ | Pisos ▸ Paginação de revestimento: 13 padrões (alinhada, amarração, diagonal, espinha de peixe, chevron, trama, hexágono, octógono com taco, opus romano, madeira com réguas aleatórias, losangos 3D, modulares), peças reais do Revit, tonalidades do catálogo distribuídas entre as peças, prévia 2D/3D, liga a exibição de partes na vista |
 | Rodapés | ✅ | Pisos ▸ Rodapés automáticos (recortados nas portas) |
 | Faixas, bordas e soleiras | ✅ | Pisos ▸ Faixas, bordas e soleiras |
 | Quantitativos (peças, recortes, perdas, caixas) | ✅ | Pisos ▸ Quantitativo de revestimento |
@@ -84,7 +84,7 @@ Na versão 0.2.0, cada ferramenta foi auditada ([AUDITORIA.md](AUDITORIA.md)). A
 |---|---|---|
 | Ambientes | ✅ | Numerar, padronizar nomes e códigos, parâmetros via planilha, verificação, vistas por ambiente, organização de vistas. Criar ambientes é nativo (**Colocar ambientes automaticamente**) |
 | Mobiliário e presets de layout | ✅ | Distribuir ao longo de parede/linha, encostar na parede, salvar e aplicar layouts, áreas de uso, lista por ambiente. Inserir é nativo (**Componente**) |
-| Ergonomia e acessibilidade com regras editáveis | 🟡 | Interiores ▸ Ergonomia e acessibilidade. Regras e nota de referência suas; **nunca declara conformidade**, como pedido. Pegadas dos móveis são aproximadas |
+| Ergonomia e acessibilidade com regras editáveis | 🟡 | Interiores ▸ Ergonomia e acessibilidade, com valores de referência da **ABNT NBR 9050:2020** (circulação 0,90 m, manobra Ø 1,50 m, aproximação 0,80 × 1,20 m, vão de porta ≥ 0,80 m, lavatório 0,78–0,80 m, bancadas 0,75–0,85 m, faixa de 0,90 m ao lado da cama, tomadas 0,40–1,00 m e interruptores 0,60–1,00 m). Tudo editável; **nunca declara conformidade**. Confira os valores no texto vigente da norma |
 | Iluminação | 🟡 | Grade por espaçamento ou método dos lúmens (estimativa, com 3D), luminárias sobre mobiliário, grupos e circuitos. Não substitui o cálculo luminotécnico |
 | Forros | ✅ | Forro por ambiente, sanca e rebaixo (com fenda de luz e 3D), aberturas (ignora furos sobrepostos). Plantas de forro são nativas ou saem do **Conjunto de plantas** |
 | Paredes e painéis | ✅ | Pintura por ambiente, revestimento recortando vãos, ripado e boiserie (com 3D) |
@@ -93,6 +93,7 @@ Na versão 0.2.0, cada ferramenta foi auditada ([AUDITORIA.md](AUDITORIA.md)). A
 
 | Item | Situação | Onde |
 |---|---|---|
+| Qualquer móvel (construtor livre) | ✅ | Marcenaria ▸ Marcenaria livre: caixa dividida em vãos (colunas/linhas com medida fixa ou automática), prateleiras reguláveis ou fixas, cabideiro, gavetas aparentes ou internas, portas de abrir (esquerda/direita/dupla), basculante, escamoteável, de correr, camarão e vidro; frentes sobrepostas ou embutidas; base com rodapé, pés, suspensa ou no piso; elevação clicável e 3D. Peças TT_Chapa editáveis |
 | Módulos (12 tipos) | ✅ | Marcenaria ▸ Módulo de marcenaria (com 3D de todas as chapas) |
 | Parametrização e edição | ✅ | Opções completas; **Editar módulo** refaz no lugar |
 | Portas, gavetas e ferragens | ✅ | Portas de abrir, duplas, de correr e basculantes; gavetas; dobradiças, corrediças, puxadores, suportes e pés por regras |
@@ -107,6 +108,7 @@ Na versão 0.2.0, cada ferramenta foi auditada ([AUDITORIA.md](AUDITORIA.md)). A
 
 | Item | Situação | Onde |
 |---|---|---|
+| Catálogo de acabamentos do projeto | ✅ | Materiais ▸ Catálogo de acabamentos: dentro do .rvt, com planilha CSV; cria materiais (com hachura das juntas), tonalidades e tipos de piso/parede/rodapé/forro. Aplicar acabamento do catálogo e Quantitativo e custo dos acabamentos |
 | Biblioteca de materiais | ✅ | Materiais ▸ Biblioteca (edição via planilha) |
 | Substituir | ✅ | Materiais ▸ Substituir material |
 | Aplicar | ➖ | Nativos: **Propriedades** (edição múltipla) e **Pintar** |
