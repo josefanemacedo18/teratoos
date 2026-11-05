@@ -34,6 +34,14 @@ internal static class CeilingUtil
             .ToList();
     }
 
+    /// <summary>Forros ficam acima do plano de corte: numa planta de piso parecem "não gerados".</summary>
+    public static void VisibilityHint(ToolContext ctx)
+    {
+        if (ctx.ActiveView.ViewType == ViewType.FloorPlan)
+            ctx.Report.Info(Loc.T("Os forros ficam acima do plano de corte e não aparecem na planta de piso: veja na planta de forro ou em 3D.",
+                "Ceilings are above the cut plane and do not show in floor plans: check the ceiling plan or a 3D view."));
+    }
+
     /// <summary>Tipo de parede básica mais fina (para fechamentos de sanca).</summary>
     public static WallType ThinWallType(Document doc, string? name) =>
         Lookup.Named<WallType>(doc, name)
@@ -101,12 +109,14 @@ public sealed class CeilingByRoomCommand : ToolCommand
                     }
                     catch (Exception ex)
                     {
-                        ctx.Report.Warn(RoomUtil.Label(room) + ": " + Shapes.FailText(ex), room.Id.Value);
+                        ctx.ItemFailed("Forros não criados", "Ceilings not created", ex, room.Id.Value);
                     }
                 }
                 if (o.FillFinish && doc.GetElement(typeId) is CeilingType ct) RevitGeo.Set(room, BuiltInParameter.ROOM_FINISH_CEILING, ct.Name);
             }
+            ctx.RequireCreated(ctx.Report.GetCount(Loc.T("Criados", "Created")), "forros", "ceilings");
         });
+        CeilingUtil.VisibilityHint(ctx);
     }
 }
 
@@ -180,7 +190,7 @@ public sealed class CoveCommand : ToolCommand
                 var (outer, inner, band) = Split(o, reg);
                 if (inner == null || band == null)
                 {
-                    ctx.Report.Warn(Loc.F("{0}: o rebaixo é largo demais para o ambiente.", "{0}: the drop is too wide for the room.", label), room.Id.Value);
+                    ctx.ItemFailed("Ambientes sem sanca", "Rooms without cove", Loc.T("o rebaixo é largo demais para o ambiente", "the drop is too wide for the room"), room.Id.Value);
                     continue;
                 }
                 try
@@ -196,7 +206,7 @@ public sealed class CoveCommand : ToolCommand
                 }
                 catch (Exception ex)
                 {
-                    ctx.Report.Warn(label + ": " + Shapes.FailText(ex), room.Id.Value);
+                    ctx.ItemFailed("Ambientes sem sanca", "Rooms without cove", ex, room.Id.Value);
                     continue;
                 }
                 if (wt != null)
@@ -228,7 +238,9 @@ public sealed class CoveCommand : ToolCommand
                 }
                 if (o.FillFinish && doc.GetElement(centerType) is CeilingType ct) RevitGeo.Set(room, BuiltInParameter.ROOM_FINISH_CEILING, ct.Name);
             }
+            ctx.RequireCreated(ctx.Report.GetCount(Loc.T("Criados", "Created")), "forros da sanca", "cove ceilings");
         });
+        CeilingUtil.VisibilityHint(ctx);
     }
 
     private static (Region2 Outer, Region2? Inner, Region2? Band) Split(CoveOptions o, Region2 reg)
@@ -347,7 +359,7 @@ public sealed class CeilingOpeningCommand : ToolCommand
                 var hit = finder.Above(new XYZ(c.X, c.Y, fp.BottomZ - 1), fp.BottomZ - U.M(1), fp.TopZ + U.M(1));
                 if (hit == null)
                 {
-                    ctx.Report.Warn(Loc.F("Nenhum forro encontrado em \"{0}\".", "No ceiling found at \"{0}\".", fp.Name), it.Id.Value);
+                    ctx.ItemFailed("Aberturas não feitas", "Openings not made", Loc.F("nenhum forro encontrado sobre \"{0}\"", "no ceiling found over \"{0}\"", fp.Name), it.Id.Value);
                     continue;
                 }
                 var (ceiling, _, z) = hit.Value;
@@ -388,8 +400,14 @@ public sealed class CeilingOpeningCommand : ToolCommand
                             poly = fp.Outline.EnsureCounterClockwise();
                         }
                         if (o.Margin > 0) poly = poly.Offset(o.Margin);
-                        foreach (var e in poly.Edges())
-                            if (e.Length > Tolerance.ShortCurve) profile.Append(Line.CreateBound(e.A.ToXYZ(z), e.B.ToXYZ(z)));
+                        // Funde vértices próximos em vez de pular lados curtos (pular abriria o contorno).
+                        var clean = poly.CleanForSketch(Tolerance.ShortCurve * 1.5);
+                        if (clean == null)
+                        {
+                            ctx.ItemFailed("Aberturas não feitas", "Openings not made", Loc.T("contorno pequeno demais ou inválido", "outline too small or invalid"), it.Id.Value);
+                            continue;
+                        }
+                        foreach (var e in clean.Edges()) profile.Append(Line.CreateBound(e.A.ToXYZ(z), e.B.ToXYZ(z)));
                         break;
                     }
                 }
@@ -402,9 +420,10 @@ public sealed class CeilingOpeningCommand : ToolCommand
                 }
                 catch (Exception ex)
                 {
-                    ctx.Report.Warn(fp.Name + ": " + Shapes.FailText(ex), it.Id.Value);
+                    ctx.ItemFailed("Aberturas não feitas", "Openings not made", ex, it.Id.Value);
                 }
             }
+            ctx.RequireCreated(ctx.Report.GetCount(Loc.T("Criados", "Created")), "aberturas", "openings");
         });
     }
 }

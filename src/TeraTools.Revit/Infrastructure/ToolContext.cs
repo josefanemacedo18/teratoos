@@ -171,9 +171,21 @@ public sealed class ToolContext
 
     // ------------------------------------------------------------------ Modificação
 
-    public void Modify(string name, Action action) => Tx.Run(Doc, "Téra Tools: " + name, action, Report);
+    /// <summary>Quantas transações a ferramenta concluiu (para detectar "rodou e não fez nada").</summary>
+    public int Modifications { get; private set; }
 
-    public T Modify<T>(string name, Func<T> func) => Tx.Run(Doc, "Téra Tools: " + name, func, Report);
+    public void Modify(string name, Action action)
+    {
+        Tx.Run(Doc, "Téra Tools: " + name, action, Report);
+        Modifications++;
+    }
+
+    public T Modify<T>(string name, Func<T> func)
+    {
+        var r = Tx.Run(Doc, "Téra Tools: " + name, func, Report);
+        Modifications++;
+        return r;
+    }
 
     /// <summary>Várias transações agrupadas em um único "Desfazer".</summary>
     public void Group(string name, Action action)

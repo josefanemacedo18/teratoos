@@ -49,8 +49,11 @@ public sealed class WallPaintCommand : ToolCommand
                 var faces = RoomWallPainter.Paint(doc, room, mat, ctx.Report);
                 ctx.Report.Count(Loc.T("Faces", "Faces"), faces);
                 if (mat != null && o.FillFinish) RevitGeo.Set(room, BuiltInParameter.ROOM_FINISH_WALL, mat.Name);
-                ctx.Report.AddResult(room.Id.Value);
+                if (faces > 0) ctx.Report.AddResult(room.Id.Value);
+                else ctx.ItemFailed("Ambientes sem parede pintada", "Rooms with no wall painted",
+                    Loc.T("nenhuma face de parede voltada para o ambiente foi encontrada (o ambiente é delimitado por paredes?)", "no wall face facing the room was found"), room.Id.Value);
             }
+            ctx.RequireCreated(ctx.Report.GetCount(Loc.T("Faces", "Faces")), "faces de parede", "wall faces");
         });
     }
 }
@@ -373,6 +376,7 @@ public sealed class WallFinishCommand : ToolCommand
                 if (o.FillFinish) RevitGeo.Set(room, BuiltInParameter.ROOM_FINISH_WALL, wt.Name);
                 ctx.Report.Info(Loc.F("{0}: {1} de revestimento", "{0}: {1} of finish", label, U.FormatArea(area)), room.Id.Value);
             }
+            ctx.RequireCreated(ctx.Report.GetCount(Loc.T("Criados", "Created")), "trechos de revestimento", "finish segments");
         });
     }
 }

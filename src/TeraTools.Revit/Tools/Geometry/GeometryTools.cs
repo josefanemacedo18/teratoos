@@ -122,7 +122,7 @@ public sealed class ConvertCommand : ToolCommand
                         }
                         catch (Exception ex)
                         {
-                            ctx.Report.Warn(Shapes.FailText(ex));
+                            ctx.ItemFailed("Linhas não convertidas em parede", "Lines not converted to walls", ex);
                         }
                     }
                     break;
@@ -132,7 +132,7 @@ public sealed class ConvertCommand : ToolCommand
                 {
                     var loops = Shapes.ChainLoops(flat, 0.01).Select(Shapes.ToCurveLoop).Where(l => l != null).Select(l => l!).ToList();
                     if (loops.Count == 0) throw new ToolException(Loc.T("As linhas não formam contornos fechados.", "The lines do not form closed loops."));
-                    foreach (var loop in loops)
+                    foreach (var group in GroupWithHoles(loops))
                     {
                         try
                         {
@@ -140,12 +140,12 @@ public sealed class ConvertCommand : ToolCommand
                             if (o.Target == ConvertTarget.Floors)
                             {
                                 var ft = Lookup.Named<FloorType>(ctx.Doc, o.FloorType)?.Id ?? ctx.Doc.GetDefaultElementTypeId(ElementTypeGroup.FloorType);
-                                created = Floor.Create(ctx.Doc, new List<CurveLoop> { loop }, ft, level.Id);
+                                created = Floor.Create(ctx.Doc, group, ft, level.Id);
                             }
                             else
                             {
                                 var ct = Lookup.Named<CeilingType>(ctx.Doc, o.CeilingType)?.Id ?? ctx.Doc.GetDefaultElementTypeId(ElementTypeGroup.CeilingType);
-                                var ceiling = Ceiling.Create(ctx.Doc, new List<CurveLoop> { loop }, ct, level.Id);
+                                var ceiling = Ceiling.Create(ctx.Doc, group, ct, level.Id);
                                 RevitGeo.Set(ceiling, BuiltInParameter.CEILING_HEIGHTABOVELEVEL_PARAM, o.CeilingHeight);
                                 created = ceiling;
                             }
@@ -154,9 +154,10 @@ public sealed class ConvertCommand : ToolCommand
                         }
                         catch (Exception ex)
                         {
-                            ctx.Report.Warn(Shapes.FailText(ex));
+                            ctx.ItemFailed("Contornos não convertidos", "Outlines not converted", ex);
                         }
                     }
+                    ctx.RequireCreated(ctx.Report.GetCount(Loc.T("Criados", "Created")), o.Target == ConvertTarget.Floors ? "pisos" : "forros", o.Target == ConvertTarget.Floors ? "floors" : "ceilings");
                     break;
                 }
                 case ConvertTarget.RoomSeparators:
@@ -164,8 +165,9 @@ public sealed class ConvertCommand : ToolCommand
                     var arr = new CurveArray();
                     foreach (var c in flat) arr.Append(c);
                     var sp = SketchPlane.Create(ctx.Doc, Plane.CreateByNormalAndOrigin(XYZ.BasisZ, new XYZ(0, 0, z)));
-                    var view = RevitGeo.IsPlanLike(ctx.ActiveView) ? ctx.ActiveView : null;
-                    var res = ctx.Doc.Create.NewRoomBoundaryLines(sp, arr, view);
+                    if (!RevitGeo.IsPlanLike(ctx.ActiveView))
+                        throw new ToolException(Loc.T("Abra uma planta para criar separadores de ambiente.", "Open a plan view to create room separators."));
+                    var res = ctx.Doc.Create.NewRoomBoundaryLines(sp, arr, ctx.ActiveView);
                     ctx.Report.Created(res.Size);
                     break;
                 }
@@ -183,5 +185,31 @@ public sealed class ConvertCommand : ToolCommand
             }
         });
     }
-}
 
+    /// <summary>
+    /// Agrupa contornos em regiões: um contorno dentro de outro vira furo (e uma ilha dentro do furo vira
+    /// uma nova região). Antes, cada contorno virava um elemento separado e os furos ficavam sobrepostos.
+    /// </summary>
+    private static List<List<CurveLoop>> GroupWithHoles(List<CurveLoop> loops)
+    {
+        var items = loops.Select(l => (Loop: l, Poly: RevitGeo.LoopToPolygon(l))).Where(x => !x.Poly.IsEmpty)
+            .OrderByDescending(x => x.Poly.Area).ToList();
+        var groups = new List<(Polygon2 Outer, List<CurveLoop> Loops)>();
+        for (var i = 0; i < items.Count; i++)
+        {
+            var probe = items[i].Poly[0];
+            // quantos contornos maiores o contêm: par = contorno externo; ímpar = furo do menor que o contém
+            var containers = items.Take(i).Where(x => x.Poly.Contains(probe)).ToList();
+            if (containers.Count % 2 == 0)
+            {
+                groups.Add((items[i].Poly, new List<CurveLoop> { items[i].Loop }));
+                continue;
+            }
+            var parent = containers.OrderBy(x => x.Poly.Area).First();
+            var g = groups.FirstOrDefault(x => ReferenceEquals(x.Outer, parent.Poly));
+            if (g.Loops != null) g.Loops.Add(items[i].Loop);
+            else groups.Add((items[i].Poly, new List<CurveLoop> { items[i].Loop }));
+        }
+        return groups.Select(g => g.Loops).ToList();
+    }
+}

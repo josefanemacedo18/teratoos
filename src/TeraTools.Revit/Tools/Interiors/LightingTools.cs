@@ -225,10 +225,11 @@ public sealed class LightGridCommand : ToolCommand
                 }
                 var extra = o.Mode == LightMode.Lumen ? Loc.F(" · ≈{0} lux (estimativa)", " · ≈{0} lux (estimate)", Math.Round(plan.Lux)) : "";
                 ctx.Report.Info(Loc.F("{0}: {1} luminárias{2}", "{0}: {1} fixtures{2}", RoomUtil.Label(plan.Room), placed, extra), plan.Room.Id.Value);
-                if (failed > 0)
-                    ctx.Report.Warn(Loc.F("{0}: {1} luminárias não puderam ser inseridas (família hospedada sem forro?).", "{0}: {1} fixtures could not be placed (hosted family without ceiling?).",
-                        RoomUtil.Label(plan.Room), failed), plan.Room.Id.Value);
+                ctx.Report.ItemsFailed(Loc.T("Luminárias não inseridas", "Fixtures not placed"), failed,
+                    Loc.T("a família é hospedada (de forro/face) e não há forro sobre o ponto, ou a família não aceita inserção livre", "the family is hosted (ceiling/face) and there is no ceiling over the point, or it does not allow free placement"),
+                    plan.Room.Id.Value);
             }
+            ctx.RequireCreated(ctx.Report.GetCount(Loc.T("Criados", "Created")), "luminárias", "fixtures");
         });
     }
 
@@ -345,7 +346,8 @@ public sealed class LightOverCommand : ToolCommand
                     var fi = Fixtures.Place(doc, sym, level, p, dir.Angle, o.Mount == LightMount.Ceiling, o.Height, ceilings, room?.UnboundedHeight ?? U.M(3));
                     if (fi == null)
                     {
-                        ctx.Report.Warn(Loc.F("Não foi possível inserir sobre \"{0}\".", "Could not place over \"{0}\".", fp.Name), it.Id.Value);
+                        ctx.ItemFailed("Luminárias não inseridas", "Fixtures not placed",
+                            Loc.T("a família é hospedada (de forro/face) e não há forro sobre o móvel, ou a família não aceita inserção livre", "the family is hosted and there is no ceiling over the item, or it does not allow free placement"), it.Id.Value);
                         break;
                     }
                     if (room != null) RevitGeo.Set(fi, RoomUtil.Label(room), SharedParams.Ambiente);
@@ -353,6 +355,7 @@ public sealed class LightOverCommand : ToolCommand
                     ctx.Report.AddResult(fi.Id.Value);
                 }
             }
+            ctx.RequireCreated(ctx.Report.GetCount(Loc.T("Criados", "Created")), "luminárias", "fixtures");
         });
     }
 }

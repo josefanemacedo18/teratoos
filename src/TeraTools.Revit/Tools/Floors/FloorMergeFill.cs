@@ -243,6 +243,10 @@ public sealed class FloorFillerOptions
 
     [Opt("Ignorar sobras menores que", "Ignore leftovers smaller than", Suffix = "m²", Min = 0)]
     public double MinAreaM2 { get; set; } = 0.05;
+
+    [Opt("Espessura máxima de piso de acabamento", "Maximum finish floor thickness", Kind = OptKind.Length, Min = 0,
+        Tip = "Só pisos de acabamento (do tipo escolhido, ou finos e não estruturais até esta espessura) contam como piso existente. A laje estrutural não conta.|Only finish floors (of the chosen type, or thin non-structural ones up to this thickness) count as existing floor. The structural slab does not.")]
+    public double FinishMaxThickness { get; set; } = U.Mm(60);
 }
 
 [Transaction(TransactionMode.Manual)]
@@ -281,7 +285,7 @@ public sealed class FloorFillerCommand : ToolCommand
             var reg = RevitGeo.RoomRegion(room);
             Solid? gap = roomSolid;
             if (reg != null)
-                foreach (var f in FloorUtil.FloorsInRoom(doc, room, reg).Floors)
+                foreach (var f in FloorUtil.FloorsInRoom(doc, room, reg, x => FloorUtil.IsFinishFloor(x, string.IsNullOrWhiteSpace(o.FloorType) ? null : typeId, o.FinishMaxThickness)).Floors)
                 {
                     var fp = PlanBool.Prism(PlanBool.FloorLoops(doc, f));
                     if (fp == null)
@@ -332,7 +336,7 @@ public sealed class FloorFillerCommand : ToolCommand
                     }
                     catch (Exception ex)
                     {
-                        ctx.ItemFailed("Pisos de preenchimento", "Fill floors", Shapes.FailText(ex), room.Id.Value);
+                        ctx.ItemFailed("Pisos de preenchimento", "Fill floors", ex.Message, room.Id.Value);
                     }
                 }
             }

@@ -103,6 +103,15 @@ public static class ToolRunner
 
             if (status == RunStatus.Cancelled || status == RunStatus.Failed) return;
 
+            // Rede de segurança: a ferramenta mexeu no modelo, mas não criou, alterou nem relatou nada.
+            if (ctx.Modifications > 0 && ctx.Report.Items.Count == 0 && ctx.Report.Tables.Count == 0 &&
+                ctx.Report.ResultElementIds.Count == 0 && ctx.Report.Counters.All(c => c.Value == 0))
+            {
+                Msg.Info(Loc.T("A ferramenta terminou, mas nada foi criado ou alterado com essas opções e essa seleção. Confira a seleção (ambientes, pisos, faces) e as opções e tente de novo.",
+                    "The tool finished, but nothing was created or changed with these options and selection. Check the selection and options and try again."), info.Name);
+                return;
+            }
+
             if (ctx.HasDocument && Services.Settings.SelectResults && ctx.Report.ResultElementIds.Count > 0)
             {
                 var ids = ctx.Report.ResultElementIds.Select(v => new ElementId(v))

@@ -34,13 +34,33 @@ internal static class FloorUtil
     public static ElementId FloorType(Document doc, string? name) =>
         Lookup.Named<FloorType>(doc, name)?.Id ?? doc.GetDefaultElementTypeId(ElementTypeGroup.FloorType);
 
-    public static (List<Floor> Floors, double Area) FloorsInRoom(Document doc, Room room, Region2 region)
+    /// <summary>Espessura total do tipo de piso (camadas), ou da instância quando não houver estrutura.</summary>
+    public static double Thickness(Floor f)
+    {
+        if (f.Document.GetElement(f.GetTypeId()) is FloorType ft && ft.GetCompoundStructure() is { } cs) return cs.GetWidth();
+        return f.get_Parameter(BuiltInParameter.FLOOR_ATTR_THICKNESS_PARAM)?.AsDouble() ?? 0;
+    }
+
+    /// <summary>
+    /// Piso de ACABAMENTO: do tipo indicado ou fino (até <paramref name="maxThickness"/>) e não estrutural.
+    /// A laje estrutural do nível não conta — senão todo ambiente "já teria piso".
+    /// </summary>
+    public static bool IsFinishFloor(Floor f, ElementId? sameType, double maxThickness)
+    {
+        if (sameType != null && f.GetTypeId() == sameType) return true;
+        if (f.get_Parameter(BuiltInParameter.FLOOR_PARAM_IS_STRUCTURAL)?.AsInteger() == 1) return false;
+        var t = Thickness(f);
+        return t > 0 && t <= maxThickness + 1e-6;
+    }
+
+    public static (List<Floor> Floors, double Area) FloorsInRoom(Document doc, Room room, Region2 region, Func<Floor, bool>? filter = null)
     {
         var floors = new List<Floor>();
         double area = 0;
         var rb = region.Bounds;
         foreach (var f in Lookup.Collect<Floor>(doc))
         {
+            if (filter != null && !filter(f)) continue;
             var fb = RevitGeo.Box(f);
             if (fb == null) continue;
             var lz = FloorUtil.LevelZ(room);
@@ -80,8 +100,12 @@ public sealed class FloorByRoomOptions
     [Opt("Deslocamento do nível", "Offset from level", Kind = OptKind.Length)]
     public double Offset { get; set; }
 
-    [Opt("Ignorar ambientes que já têm piso", "Skip rooms that already have a floor")]
+    [Opt("Ignorar ambientes que já têm piso de acabamento", "Skip rooms that already have a finish floor",
+        Tip = "Conta como piso de acabamento um piso do mesmo tipo escolhido ou um piso fino, não estrutural, com espessura até o limite abaixo. A laje estrutural não conta.|A finish floor is a floor of the same chosen type or a thin, non-structural floor up to the limit below. The structural slab does not count.")]
     public bool SkipExisting { get; set; } = true;
+
+    [Opt("Espessura máxima de piso de acabamento", "Maximum finish floor thickness", Kind = OptKind.Length, Min = 0, VisibleIf = "SkipExisting")]
+    public double FinishMaxThickness { get; set; } = U.Mm(60);
 
     [Opt("Preencher acabamento de piso do ambiente", "Fill the room floor finish parameter")]
     public bool FillFinish { get; set; } = true;
@@ -115,7 +139,7 @@ public sealed class FloorByRoomCommand : ToolCommand
                 if (level == null) continue;
                 foreach (var reg in RevitGeo.RoomRegions(room, loc))
                 {
-                    if (o.SkipExisting && FloorUtil.FloorsInRoom(ctx.Doc, room, reg).Area > reg.Area * 0.5)
+                    if (o.SkipExisting && FloorUtil.FloorsInRoom(ctx.Doc, room, reg, f => FloorUtil.IsFinishFloor(f, typeId, o.FinishMaxThickness)).Area > reg.Area * 0.5)
                     {
                         ctx.Report.Skipped();
                         continue;
@@ -130,11 +154,15 @@ public sealed class FloorByRoomCommand : ToolCommand
                     }
                     catch (Exception ex)
                     {
-                        ctx.Report.Warn(Loc.F("{0}: {1}", "{0}: {1}", FloorUtil.RoomLabel(room), ex.Message), room.Id.Value);
+                        ctx.ItemFailed("Pisos não criados", "Floors not created", ex.Message, room.Id.Value);
                     }
                 }
             }
+            if (ctx.Report.GetCount(Loc.T("Ignorados", "Skipped")) == 0)
+                ctx.RequireCreated(ctx.Report.GetCount(Loc.T("Criados", "Created")), "pisos", "floors");
         });
+        if (ctx.Report.GetCount(Loc.T("Ignorados", "Skipped")) > 0)
+            ctx.Report.Info(Loc.T("Ambientes que já tinham piso foram ignorados (desmarque a opção para criar mesmo assim).", "Rooms that already had a floor were skipped (untick the option to create anyway)."));
     }
 }
 
@@ -254,10 +282,11 @@ public sealed class BorderCommand : ToolCommand
                 }
                 catch (Exception ex)
                 {
-                    ctx.Report.Warn(Loc.F("{0}: {1}", "{0}: {1}", FloorUtil.RoomLabel(room), ex.Message), room.Id.Value);
+                    ctx.ItemFailed("Faixas não criadas", "Bands not created", ex.Message, room.Id.Value);
                 }
                 if (o.Thresholds) CreateThresholds(ctx, room, level, o);
             }
+            ctx.RequireCreated(ctx.Report.GetCount(Loc.T("Criados", "Created")) + ctx.Report.GetCount(Loc.T("Soleiras", "Thresholds")), "faixas e soleiras", "bands and thresholds");
         });
     }
 
@@ -486,8 +515,8 @@ public sealed class PagingCommand : ToolCommand
                 if (pieceCount > ctx.Settings.ElementWarningThreshold * 2)
                 {
                     // A divisão em partes é pesada: milhares de peças num único elemento travam o Revit.
-                    ctx.Report.Warn(Loc.F("{0}: {1} peças é demais para dividir com segurança. Aumente o tamanho da peça ou pagine por ambiente menor.",
-                        "{0}: {1} pieces is too many to divide safely. Increase piece size or page a smaller area.", label, pieceCount), job.Host.Id.Value);
+                    ctx.ItemFailed("Elementos não paginados", "Elements not laid out", Loc.F("{0} peças é demais para dividir com segurança — aumente o tamanho da peça ou pagine uma área menor",
+                        "{0} pieces is too many to divide safely — increase piece size or lay out a smaller area", pieceCount), job.Host.Id.Value);
                     continue;
                 }
                 List<Part> parts;
@@ -495,9 +524,9 @@ public sealed class PagingCommand : ToolCommand
                 {
                     parts = PartsService.FinishLayer(PartsService.EnsureParts(ctx.Doc, job.Host), job.Side, job.Side == PartsService.Side.All ? job.Plane : null);
                 }
-                catch (ToolException ex)
+                catch (Exception ex)
                 {
-                    ctx.Report.Warn(ex.Message, job.Host.Id.Value);
+                    ctx.ItemFailed("Elementos não paginados", "Elements not laid out", ex, job.Host.Id.Value);
                     continue;
                 }
                 var curves = new List<Curve>();
@@ -519,7 +548,7 @@ public sealed class PagingCommand : ToolCommand
                 }
                 catch (Exception ex)
                 {
-                    ctx.Report.Warn(Loc.F("{0}: divisão falhou ({1})", "{0}: division failed ({1})", label, ex.Message), job.Host.Id.Value);
+                    ctx.ItemFailed("Elementos não paginados (divisão em partes recusada)", "Elements not laid out (division refused)", ex, job.Host.Id.Value);
                     continue;
                 }
                 var leaf = PartsService.FinishLayer(PartUtils.GetAssociatedParts(ctx.Doc, job.Host.Id, false, true)
@@ -558,11 +587,26 @@ public sealed class PagingCommand : ToolCommand
                     new[] { "BIP:DPART_MATERIAL_ID_PARAM", SharedParams.Status }, itemized: false, report: ctx.Report);
                 ctx.Report.Count(Loc.T("Tabelas", "Schedules"));
             }
+            ctx.RequireCreated(ctx.Report.GetCount(Loc.T("Peças (partes)", "Pieces (parts)")), "peças da paginação", "layout pieces");
+            // Sem isto a vista continua mostrando o elemento original e parece que nada foi gerado.
+            var view = ctx.ActiveView;
+            if (view.PartsVisibility is not (PartsVisibility.ShowPartsOnly or PartsVisibility.ShowPartsAndOriginal))
+            {
+                try
+                {
+                    view.PartsVisibility = PartsVisibility.ShowPartsOnly;
+                    ctx.Report.Info(Loc.T("A vista ativa passou a mostrar as partes (as peças da paginação).", "The active view now shows parts (the layout pieces)."));
+                }
+                catch (Exception ex)
+                {
+                    Log.Warn("Visibilidade das partes: " + ex.Message);
+                    ctx.Report.Warn(Loc.T("As peças foram criadas, mas esta vista não mostra partes (provavelmente controlada pelo modelo de vista). Em Propriedades da vista, ajuste 'Visibilidade das partes' para 'Mostrar partes'.",
+                        "The pieces were created, but this view does not show parts (probably controlled by its view template). In view Properties set 'Parts Visibility' to 'Show Parts'."));
+                }
+            }
         });
         ctx.Report.Tables.AddRange(summary);
         ctx.Report.ForceShow = true;
-        if (ctx.ActiveView.PartsVisibility != PartsVisibility.ShowPartsOnly && ctx.ActiveView.PartsVisibility != PartsVisibility.ShowPartsAndOriginal)
-            ctx.Report.Info(Loc.T("Dica: em Propriedades da vista, ajuste 'Visibilidade das partes' para 'Mostrar partes'.", "Tip: in view Properties set 'Parts Visibility' to 'Show Parts'."));
     }
 }
 

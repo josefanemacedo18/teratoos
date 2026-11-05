@@ -99,25 +99,33 @@ public static class Shapes
         try
         {
             var loop = new CurveLoop();
+            // "p" é o ponto onde o laço está. Uma linha curta demais é absorvida (o ponto não anda)
+            // em vez de pulada — pular deixaria um buraco entre a linha anterior e a seguinte.
+            var p = chain[0].GetEndPoint(0);
             for (var i = 0; i < chain.Count; i++)
             {
                 var c = chain[i];
                 var next = chain[(i + 1) % chain.Count];
-                var a = c.GetEndPoint(0);
-                var b = next.GetEndPoint(0);
                 if (c is Line)
                 {
-                    if (a.DistanceTo(b) > Tolerance.ShortCurve) loop.Append(Line.CreateBound(a, b));
+                    var b = next.GetEndPoint(0);
+                    if (p.DistanceTo(b) > Tolerance.ShortCurve * 1.5)
+                    {
+                        loop.Append(Line.CreateBound(p, b));
+                        p = b;
+                    }
                 }
                 else
                 {
                     loop.Append(c);
+                    p = c.GetEndPoint(1);
                 }
             }
             return loop;
         }
-        catch
+        catch (Exception ex)
         {
+            Log.Warn("Montar contorno: " + ex.Message);
             return null;
         }
     }
