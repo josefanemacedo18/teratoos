@@ -18,6 +18,8 @@ src/
     Tiling/ Layout/ Checks/  paginação, distribuição em grade, ergonomia, motor de regras
     Joinery/ Nesting/        construtor de módulos, lista de corte, otimizador de chapas
     Costing/ Materials/ Documentation/   orçamento, biblioteca de materiais, empacotamento de vistas
+    Organic/                 malhas fechadas (loft, casca, tubos, varredura, placa sobre superfície),
+                             colunas, coberturas e lâminas de fachada orgânicas, estilos prontos
   TeraTools.Revit/           add-in (net10.0-windows, WPF), saída TeraTools.dll
     App.cs                   inicialização: catálogo, faixa de opções, painel, tema
     Infrastructure/          comandos, contexto, transações, consultas, geometria Revit, tabelas, filtros
@@ -93,14 +95,26 @@ public sealed class MinhaCommand : ToolCommand
 
 Geradores registram opções e contexto com `GenSystem.Register(...)` e marcam os elementos com `GenSystem.Mark(...)` (Extensible Storage e `TT_Sistema`). Para permitir "Editar sistema gerado", adicione um regenerador em `GenRegistry.Regenerators` (`Tools/Generators/KineticTool.cs`).
 
+Cada registro guarda a versão do gerador (`GeneratorVersions`, em `Families/BoxSink.cs`) e até 20 versões anteriores das opções (`GeneratedSystem.History`). **Aumente a versão do gerador** quando uma mudança fizer as mesmas opções darem um resultado diferente: assim os sistemas antigos avisam ao serem regenerados.
+
+### Formas orgânicas
+
+O núcleo (`Core/Organic`) gera `OrganicMesh` — malhas fechadas com a função da peça (`Role`). Os testes conferem que toda peça é fechada (cada aresta em dois triângulos) e tem volume. No add-in, `OrganicGeo.Build` converte as malhas em geometria com `TessellatedShapeBuilder` (alvo `AnyGeometry`, recurso `Mesh`), com material por função, descartando triângulos abaixo da tolerância do Revit. Contornos côncavos são triangulados uma vez e recortados por células convexas (recortar o contorno côncavo direto cria pontes de largura zero).
+
+### Autoteste
+
+`Tools/General/SelfTestTool.cs` monta um cenário a 500 m do modelo dentro de um `TransactionGroup`, roda as etapas com contextos próprios (`ToolContext.Silent = true`: sem perguntas e sem abrir vistas) e reverte o grupo no fim. Ao criar um gerador novo, acrescente uma etapa ali.
+
 ### Armazenamento no projeto
 
-`ProjectStorage.GetSection<T>(doc, chave)` e `SetSection(...)` guardam JSON dentro do `.rvt`. A gravação precisa de transação. Chaves em uso: `presets`, `systems`, `info`, `themes`, `qa.rules`, `joinery.rules`, `qty.snapshots`, `tt.markers`.
+`ProjectStorage.GetSection<T>(doc, chave)` e `SetSection(...)` guardam JSON dentro do `.rvt`. A gravação precisa de transação. Chaves em uso: `presets`, `systems`, `info`, `themes`, `qa.rules`, `joinery.rules`, `qty.snapshots`, `tt.markers`, `finishCatalog`.
+
+As imagens das **referências visuais** não entram nesse JSON: cada uma fica num `DataStorage` próprio com o esquema `TeraToolsReference` (`Infrastructure/ReferenceStore.cs`), para não pesar na leitura das configurações.
 
 ## Testes no Revit
 
 Este código ainda não foi executado no Revit. Roteiro sugerido para a primeira rodada de testes:
 
-1. Abrir o Revit com o add-in e conferir a aba, o painel e as páginas de ajuda.
+1. Abrir o Revit com o add-in, conferir a aba, o painel e as páginas de ajuda, e rodar **Geral ▸ Autoteste do plugin**.
 2. Num projeto de teste com alguns ambientes, rodar uma ferramenta de cada módulo.
 3. Para cada erro, copiar os detalhes da janela de erro e registrar junto com os passos para reproduzir.

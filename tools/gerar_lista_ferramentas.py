@@ -11,7 +11,7 @@ modules = [("general","Geral","Painel, busca, configurações e ajuda"),("modeli
  ("joinery","Marcenaria","Módulos planejados, detalhamento e plano de corte"),("materials","Materiais","Biblioteca, aplicação e especificação de materiais"),
  ("docs","Documentação","Vistas, pranchas, anotações e exportação"),("quantities","Quantitativos","Tabelas, quantitativos e orçamento"),
  ("quality","Qualidade","Verificações e regras personalizadas"),("project","Projeto","Configurações, presets, bibliotecas e lote")]
-const = {"General":"general","Modeling":"modeling","Selection":"selection","Analysis":"analysis","Generators":"generators","Geometry":"geometry","Floors":"floors",
+const = {"General":"general","Modeling":"modeling","Selection":"selection","Analysis":"analysis","Generators":"generators","Organic":"organic","Geometry":"geometry","Floors":"floors",
  "Interiors":"interiors","Joinery":"joinery","Materials":"materials","Documentation":"docs","Quantities":"quantities","Quality":"quality","Project":"project"}
 strre = r'"((?:[^"\\]|\\.)*)"'
 def unesc(s): return s.encode('utf-8').decode('unicode_escape').encode('latin-1').decode('utf-8') if '\\' in s else s

@@ -1,12 +1,13 @@
 # Téra Tools — referência das ferramentas
 
-Lista gerada a partir do código-fonte: **84 ferramentas** em 11 módulos. No Revit, cada ferramenta também tem uma página de ajuda (botão **Ajuda** ou tecla **F1** no diálogo, ou no painel Téra).
+Lista gerada a partir do código-fonte: **89 ferramentas** em 12 módulos. No Revit, cada ferramenta também tem uma página de ajuda (botão **Ajuda** ou tecla **F1** no diálogo, ou no painel Téra).
 
 ## Índice
 
-- [Geral](#geral) — Painel, busca, configurações e ajuda (4)
+- [Geral](#geral) — Painel, busca, configurações e ajuda (5)
 - [Modelagem](#modelagem) — Distribuir, girar no lugar, seleção avançada e conversão de CAD (5)
 - [Geradores](#geradores) — Padrões, imagem, brises, quadros espaciais, cinético e temas (10)
+- [Orgânicos](#orgânicos) — Colunas, coberturas e lâminas de formas orgânicas, editáveis por parâmetros (3)
 - [Pisos](#pisos) — Pisos, paginação, rodapés e revestimentos (9)
 - [Interiores](#interiores) — Ambientes, mobiliário, ergonomia, iluminação, forros e paredes (23)
 - [Marcenaria](#marcenaria) — Módulos planejados, detalhamento e plano de corte (8)
@@ -14,7 +15,7 @@ Lista gerada a partir do código-fonte: **84 ferramentas** em 11 módulos. No Re
 - [Documentação](#documentação) — Vistas, pranchas, anotações e exportação (9)
 - [Quantitativos](#quantitativos) — Tabelas, quantitativos e orçamento (4)
 - [Qualidade](#qualidade) — Verificações e regras personalizadas (2)
-- [Projeto](#projeto) — Configurações, presets, bibliotecas e lote (3)
+- [Projeto](#projeto) — Configurações, presets, bibliotecas e lote (4)
 
 ## Geral
 
@@ -46,6 +47,17 @@ Painel, limites de desempenho, pastas e exportação.
 `general.help`
 
 Abre a documentação integrada com todas as ferramentas.
+
+### Autoteste do plugin
+`general.selftest`
+
+Roda os geradores e as ferramentas principais num cenário temporário e desfaz tudo no fim: mostra o que funciona neste Revit, sem alterar o modelo.
+
+> Use depois de instalar ou atualizar o plugin, ou quando alguma ferramenta "não gerar nada".
+>
+> O teste cria, longe do modelo, quatro paredes com laje e um ambiente, e uma parede de fachada. Em seguida roda: colunas e coberturas orgânicas, lâminas de fachada, quadro espacial, aletas, padrões, painéis cinéticos, piso, rodapé, forro e revestimento por ambiente, paginação e marcenaria (forma livre e famílias). No fim, tudo é desfeito.
+>
+> O relatório mostra, para cada item: OK, Atenção (gerou, mas com avisos) ou Falhou (com o motivo). Envie esse relatório junto com o seu retorno.
 
 ### Diagnóstico
 `general.about`
@@ -196,7 +208,7 @@ Temas de vista prontos (apresentação, croqui, maquete branca, monocromático, 
 ### Editar sistema gerado
 `gen.edit`
 
-Reabre as opções de qualquer padrão, mosaico, brise, quadro espacial ou cinético gerado e o regenera no mesmo lugar.
+Reabre as opções de qualquer sistema gerado (padrão, mosaico, brise, quadro espacial, cinético, ripado, boiserie, marcenaria, colunas, cobertura, lâminas) e o regenera no mesmo lugar — ou volta a uma versão anterior.
 
 > Selecione um elemento criado por um gerador. As opções usadas na criação são carregadas; ao confirmar, o sistema antigo é substituído (tudo em um único Desfazer).
 
@@ -204,6 +216,65 @@ Reabre as opções de qualquer padrão, mosaico, brise, quadro espacial ou ciné
 `gen.select`
 
 Seleciona todos os elementos do sistema gerado ao qual o elemento escolhido pertence.
+
+## Orgânicos
+
+_Colunas, coberturas e lâminas de formas orgânicas, editáveis por parâmetros_
+
+### Colunas orgânicas
+`org.column`
+
+Cria colunas e pilares de formas orgânicas — cheios, ocos, vazados, torcidos, ondulados, em leque, treliça, lâminas ou pétalas — editáveis por parâmetros ou por linhas desenhadas.
+
+> 1. Escolha um estilo pronto (ou suas últimas opções).
+>
+> 2. Ajuste silhueta, seção, eixo, torção, caneluras, ondas, construção, base e capitel; a pré-visualização 3D mostra o resultado.
+>
+> 3. Para formas livres, escolha "Desenhado" na seção (contorno fechado em planta), na silhueta (meio perfil em elevação + um clique no eixo) ou no eixo (linha 3D).
+>
+> 4. Clique nos pontos de inserção (Esc para terminar). Com eixo desenhado, a coluna segue a linha.
+>
+> Cada coluna vira uma forma livre com material por peça. O relatório traz volume, área, comprimento de barras, peso e uma esbeltez indicativa.
+>
+> Para alterar depois: Editar sistema gerado.
+>
+> Limitação: a verificação de esbeltez é só um alerta geométrico; o dimensionamento é do engenheiro.
+
+### Coberturas orgânicas
+`org.canopy`
+
+Cria coberturas de forma livre — almofada, abóbada, sela, ondas, guarda-chuvas, membrana, bolhas ou fórmula — com pele (contínua, painéis ou lâminas), estrutura e apoios em árvore, ligáveis a colunas existentes.
+
+> 1. Escolha um estilo pronto (ou suas últimas opções).
+>
+> 2. Indique a planta: retângulo, contorno de piso/cobertura/ambiente, linhas desenhadas (contorno fechado) ou círculo.
+>
+> 3. Ajuste superfície, pele, estrutura e apoios com a pré-visualização 3D.
+>
+> 4. Opcional: ligue a colunas existentes (inclusive as Colunas orgânicas) no topo, num ponto intermediário ou nos dois — os galhos saem da coluna e sobem até a cobertura.
+>
+> Pele, estrutura e apoios viram formas livres separadas, com material próprio. O relatório traz áreas, comprimentos, alturas, altura livre e pontos onde a água pode empoçar.
+>
+> Para alterar depois: Editar sistema gerado.
+>
+> Limitação: é um gerador geométrico; estrutura e drenagem devem ser verificadas pelos projetistas.
+
+### Lâminas de fachada
+`org.fins`
+
+Fachadas de lâminas personalizadas — chapa, tubo, losango, elipse ou gota — que giram em onda, por atrator, aleatórias ou por fórmula, torcem na altura, abrem em arco sobre entradas e têm faixas horizontais e estado cinético.
+
+> 1. Escolha um estilo pronto (ou suas últimas opções).
+>
+> 2. Escolha a parede (as lâminas ficam do lado externo) ou as linhas do caminho em planta (retas ou curvas).
+>
+> 3. Ajuste seção, rotação, torção, recortes da base e do topo (inclinado, onda, arco de entrada ou linha desenhada em elevação), faixas e materiais com a pré-visualização 3D.
+>
+> 4. Gere. Cada lâmina vira uma forma livre numerada; o relatório traz a lista de corte (comprimentos iguais agrupados) e a rotação de cada lâmina.
+>
+> O "Estado de abertura" de 0% a 100% gira tudo do ângulo base até a variação completa: gere estados diferentes para estudos de insolação e renders.
+>
+> Para alterar depois: Editar sistema gerado.
 
 ## Pisos
 
@@ -671,3 +742,14 @@ Copia de outro projeto aberto (ou do seu arquivo-modelo) as configurações do T
 Abre vários arquivos .rvt em segundo plano e executa uma ação em cada um: PDF das pranchas, verificação de qualidade, quantitativos ou atualização de versão.
 
 > Os arquivos são abertos sem interface e fechados ao final (somente "Atualizar e salvar" grava). Arquivos com compartilhamento de trabalho são abertos desanexados para as ações de leitura. Os resultados ficam em exportacoes\lote.
+
+### Referências visuais
+`proj.references`
+
+Guarde dentro do próprio .rvt imagens de referência — moodboard, inspirações, fotos de obra, croquis — com título, notas e etiquetas, ligadas (se quiser) a um sistema gerado.
+
+> Adicione imagens de arquivos ou cole da área de transferência (Ctrl+V). Cada imagem é reduzida (lado maior de 1600 px, JPEG) e salva no projeto: viaja com o .rvt, sem depender de pastas.
+>
+> Se um elemento gerado (coluna, cobertura, lâminas, padrão, marcenaria…) estiver selecionado ao abrir, a janela mostra as referências daquele sistema e as novas já vêm ligadas a ele.
+>
+> Dica: mantenha poucas dezenas de imagens; o tamanho total aparece no rodapé.

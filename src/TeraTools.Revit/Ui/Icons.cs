@@ -35,6 +35,7 @@ public static class Icons
         ["general.pane"] = "f:M4,5 H28 V27 H4 Z;F:M19,5 H28 V27 H19 Z;s:M7,10 H15 M7,14 H15 M7,18 H13",
         ["general.settings"] = "s:M16,11 A5,5 0 1 1 15.99,11 Z;a:M16,3 V8 M16,24 V29 M3,16 H8 M24,16 H29 M6.8,6.8 L10.3,10.3 M21.7,21.7 L25.2,25.2 M6.8,25.2 L10.3,21.7 M21.7,10.3 L25.2,6.8",
         ["general.help"] = "s:M16,3 A13,13 0 1 1 15.99,3 Z;a:M11.5,12 A4.5,4.5 0 1 1 16,16.5 V19;F:M14.5,22 H17.5 V25 H14.5 Z",
+        ["general.selftest"] = "f:M6,4 H22 V28 H6 Z;s:M10,10 H18 M10,16 H18 M10,22 H14;F:M20,16 A6,6 0 1 1 19.99,16 Z;w:M17,16 L19.5,18.5 L23.5,13.5",
         ["general.about"] = "f:M4,6 H28 V24 H4 Z;s:M12,28 H20 M16,24 V28;a:M9,17 L13,13 L17,17 L23,11",
 
         // ---------- Modelagem

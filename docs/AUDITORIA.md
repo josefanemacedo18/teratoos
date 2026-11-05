@@ -304,7 +304,7 @@ O que foi aplicado difere da proposta acima em três pontos:
 - `floor.uncovered` (Ambientes sem revestimento) foi substituído por **Preencher pisos (Floor Filler)**, que lista as áreas descobertas **e** pode criar o piso que falta.
 - Entrou **Unir pisos (Floor Merger)**, que não tem equivalente nativo.
 
-Resultado: **80 ferramentas em 11 módulos**. A versão 0.3.0 acrescentou o catálogo de acabamentos (3 ferramentas) e a marcenaria livre: **84 ferramentas** (a lista completa está em [FERRAMENTAS.md](FERRAMENTAS.md)).
+Resultado: **80 ferramentas em 11 módulos**. A versão 0.3.0 acrescentou o catálogo de acabamentos (3 ferramentas) e a marcenaria livre: **84 ferramentas**. A versão 0.4.0 acrescentou o módulo Orgânicos (colunas, coberturas e lâminas de fachada), as referências visuais e o autoteste: **89 ferramentas em 12 módulos** (a lista completa está em [FERRAMENTAS.md](FERRAMENTAS.md)).
 
 Refinamentos da Fase 4 já feitos:
 

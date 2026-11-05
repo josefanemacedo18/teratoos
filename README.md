@@ -2,15 +2,18 @@
 
 Plugin para **arquitetura de interiores, marcenaria e documentação** no Autodesk Revit 2027, com geradores paramétricos inspirados no Pixy Tools. Ele cria **elementos BIM editáveis**: pisos, forros, paredes, famílias paramétricas e tabelas nativas do Revit. Nada fica "morto" no modelo.
 
-- **84 ferramentas** em **11 módulos**, numa aba própria chamada **Téra Tools** e num painel lateral com busca
+- **89 ferramentas** em **12 módulos**, numa aba própria chamada **Téra Tools** e num painel lateral com busca
 - Sem ferramentas repetidas: tudo o que o Revit já faz nativamente com a mesma precisão foi retirado (veja [docs/AUDITORIA.md](docs/AUDITORIA.md))
 - **Pré-visualização 3D** nos geradores, na marcenaria, nos forros, na iluminação e nas paredes: você gira, aproxima e vê o resultado **antes** de aplicar
 - Interface **100% em português** e **medidas sempre em milímetros**
-- **Catálogo de acabamentos** do projeto (pisos, revestimentos, pinturas, rodapés, forros) com planilha CSV, e **marcenaria livre** para montar qualquer móvel por vãos
+- **Catálogo de acabamentos** do projeto (pisos, revestimentos, pinturas, rodapés, forros) com planilha CSV, e **marcenaria livre** para montar qualquer móvel por vãos, com **puxadores modelados** e **verificação de sobreposições**
+- Módulo **Orgânicos**: **colunas**, **coberturas** e **lâminas de fachada** de forma livre, todas editáveis por parâmetros (e por linhas desenhadas), com estilos prontos e quantitativos
+- **Biblioteca de materiais** com 98 materiais, 56 deles com **textura de imagem** (domínio público, CC0)
+- **Autoteste** dentro do Revit, **referências visuais** guardadas no projeto e **histórico de versões** de cada sistema gerado
 - Cada operação vira **um único Desfazer** (Ctrl+Z) e termina com um **relatório** que pode ser exportado para Excel, CSV ou HTML
 - Presets reutilizáveis (pessoais, do projeto ou da equipe), histórico de operações e ajuda em cada ferramenta
 
-> **Situação atual: versão 0.3.0.** Compilado contra a API oficial do Revit 2027; os testes automáticos do núcleo passam (199 testes). Esta versão corrige as causas de "cliquei em gerar e não gerou" (gerador de padrões, quadro espacial, pisos, paginação, forros) e acrescenta o catálogo de acabamentos, seis padrões de assentamento, a marcenaria livre e as referências da NBR 9050:2020. O plugin ainda **não foi executado dentro do Revit** neste ambiente de desenvolvimento: se aparecer algum erro, siga [Quando algo der errado](#quando-algo-der-errado).
+> **Situação atual: versão 0.4.0.** Compilado contra a API oficial do Revit 2027; os 363 testes automáticos do núcleo passam. Esta versão corrige rodapés e revestimentos sem volume e a paginação que não gerava, completa a marcenaria (puxadores e sobreposições), traz a biblioteca de materiais com texturas, o novo módulo **Orgânicos** (colunas, coberturas e lâminas de fachada), o autoteste, as referências visuais e o histórico de versões. O plugin ainda **não foi executado dentro do Revit** neste ambiente de desenvolvimento: comece pelo **Geral ▸ Autoteste do plugin** e, se aparecer algum erro, siga [Quando algo der errado](#quando-algo-der-errado).
 
 ---
 
@@ -70,17 +73,18 @@ O guia completo está em [docs/GUIA.md](docs/GUIA.md), e a lista de todas as fer
 
 | Módulo | Ferramentas | Destaques |
 |---|---|---|
-| Geral | 4 | Painel com busca, favoritos, recentes e histórico; configurações; ajuda; diagnóstico e pasta de logs |
+| Geral | 5 | Painel com busca, favoritos, recentes e histórico; configurações; ajuda; **autoteste do plugin**; diagnóstico e pasta de logs |
 | Modelagem | 5 | **Filtro avançado** (categoria, família, tipo, material, parâmetro, ambiente, nível), elementos do ambiente, **distribuir pelo ponto de inserção**, **girar cada elemento no lugar**, converter linhas/CAD em pisos e forros (com furos) |
 | Geradores | 10 | **Gerador de padrões no estilo Pixy** (hexágono, Voronoi, estrela, círculos, losangos, triângulos, quadrados, ondas e tijolos, com fade e furos reais), imagem para blocos, brises, **quadro espacial** (sob a cobertura ou acima da base), painéis cinéticos, paletas, colorir por parâmetro, gerador de temas |
+| Orgânicos | 3 | **Colunas orgânicas** (cheias, ocas, nervuras, treliça, grelha, lâminas, pétalas; torção, caneluras, ondas; silhueta, seção e eixo por parâmetros ou desenhados), **coberturas orgânicas** (almofada, abóbada, sela, ondas, guarda-chuvas, membrana, bolhas, fórmula; pele, estrutura e apoios em árvore, ligáveis a colunas no topo e em ponto intermediário) e **lâminas de fachada** (giro em onda, atrator ou fórmula, torção, arco de entrada, faixas e estado cinético) |
 | Pisos | 9 | Floor Tracer, Splitter, Merger e Filler, faixas e soleiras, **paginação com 13 padrões** (alinhada, amarração, diagonal, espinha de peixe, **chevron**, trama, **hexágono**, **octógono com taco**, **opus romano**, **madeira com réguas aleatórias**, **losangos 3D** e modulares) e **tonalidades do catálogo**, rodapés, quantitativos |
 | Interiores | 23 | Ambientes, mobiliário e layouts, **ergonomia e acessibilidade com referências da NBR 9050:2020** (circulação, manobra, portas, camas, lavatórios, bancadas, tomadas e interruptores), iluminação, forros e sancas, pintura, revestimentos, ripado e boiserie |
-| Marcenaria | 8 | **Marcenaria livre** (qualquer móvel por vãos, com todo tipo de porta e gaveta, elevação clicável e 3D), módulos paramétricos, composição na parede, detalhamento, **plano de corte, ferragens, Excel/CSV e nesting** |
-| Materiais | 7 | **Catálogo de acabamentos** no projeto (CSV), **aplicar acabamento do catálogo** nos ambientes, **quantitativo e custo dos acabamentos**, biblioteca pessoal, acabamentos por ambiente, substituir, ficha técnica |
+| Marcenaria | 8 | **Marcenaria livre** (qualquer móvel por vãos, com todo tipo de porta e gaveta, elevação clicável e 3D, **puxadores modelados** e aviso de **peças que se sobrepõem**), módulos paramétricos, composição na parede, detalhamento, **plano de corte, ferragens, Excel/CSV e nesting** |
+| Materiais | 7 | **Catálogo de acabamentos** no projeto (CSV, com texturas), **biblioteca com 98 materiais e 56 texturas**, **aplicar acabamento do catálogo** nos ambientes, **quantitativo e custo dos acabamentos**, biblioteca pessoal, acabamentos por ambiente, substituir, ficha técnica |
 | Documentação | 9 | Conjuntos de plantas, cortes e 3D por ambiente, pranchas automáticas, renumeração, cotas internas, legendas e notas |
 | Quantitativos | 4 | Tabelas (inclusive de ambientes), levantamento em Excel, **orçamento com a sua tabela de preços**, comparação antes × depois |
 | Qualidade | 2 | Verificação do modelo (inclusive geometria) com **regras editáveis em planilha** |
-| Projeto | 3 | Presets e bibliotecas, transferência das configurações do Téra Tools entre projetos, processamento em lote |
+| Projeto | 4 | Presets e bibliotecas, transferência das configurações do Téra Tools entre projetos, processamento em lote, **referências visuais** (imagens com notas dentro do .rvt) |
 
 O que foi feito de cada item do seu pedido original está em [docs/STATUS.md](docs/STATUS.md).
 
@@ -88,6 +92,7 @@ O que foi feito de cada item do seu pedido original está em [docs/STATUS.md](do
 
 ## Quando algo der errado
 
+0. Rode **Geral ▸ Autoteste do plugin**. Ele monta um cenário temporário longe do modelo, testa os geradores e as ferramentas principais e **desfaz tudo** no fim. Exporte o relatório (OK / Atenção / Falhou, com o motivo) e envie junto com o seu retorno.
 1. Quando ocorre um erro inesperado, o Téra Tools mostra uma **janela de erro**. Clique em **Copiar detalhes**.
 2. Cole o texto na conversa com o Claude e conte, em uma frase, o que você estava fazendo (por exemplo: "rodei Paginação de revestimento num piso de 3×4 m").
 3. Se o Revit fechar ou travar, os registros ficam em `%AppData%\TeraTools\logs`. Em **Geral ▸ Diagnóstico ▸ Abrir a pasta de dados e logs** você chega lá direto. Envie o arquivo mais recente.
@@ -106,6 +111,8 @@ Estes limites são intencionais, para não prometer o que o Revit não garante:
 - **Nesting de chapas** é um otimizador próprio, bom para orçamento e planejamento. Confira com o fornecedor. Arquivos de **CNC** específicos de cada máquina **não** são gerados: há um CSV genérico de fabricação, que você ajusta ao seu software.
 - **Iluminação pelo método dos lúmens** é um pré-dimensionamento. O cálculo luminotécnico final deve ser feito em software próprio.
 - **Painéis cinéticos** têm estados paramétricos (abrir e fechar por regra). Animação em tempo real e simulação física são escopos separados, como você mesma previu.
+- **Colunas, coberturas e lâminas orgânicas** são **formas livres** (DirectShape) com material por peça, na categoria escolhida (colunas, pilares estruturais, coberturas ou modelo genérico). Para mudar a forma, use **Editar sistema gerado**: não são famílias com parâmetros no painel Propriedades.
+- A **esbeltez** das colunas, os **pontos de empoçamento** e a **altura livre** das coberturas são alertas geométricos para orientar o desenho. O dimensionamento estrutural e a drenagem são dos projetistas.
 - Os **recursos avançados da seção 13** do pedido ficam para depois da estabilização dos módulos principais.
 - Compatível com o **Revit 2027**. Outras versões exigem uma compilação específica.
 

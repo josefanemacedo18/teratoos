@@ -71,10 +71,14 @@ São famílias normais do Revit: dá para mover, copiar, mudar medidas e tabelar
 
 ### Editar depois
 
-Padrões, mosaicos, brises, quadros espaciais, painéis cinéticos, ripados, boiseries e módulos de marcenaria ficam **registrados no projeto** com as opções usadas. Para alterar:
+Padrões, mosaicos, brises, quadros espaciais, painéis cinéticos, ripados, boiseries, módulos de marcenaria e as **colunas, coberturas e lâminas orgânicas** ficam **registrados no projeto** com as opções usadas. Para alterar:
 
 - **Geradores ▸ Editar sistema gerado:** selecione uma peça. As opções originais reabrem e o sistema é refeito no mesmo lugar.
 - **Marcenaria ▸ Editar módulo:** faz o mesmo para módulos de marcenaria.
+
+### Versões anteriores
+
+Cada vez que um sistema é refeito, as opções anteriores ficam guardadas (até 20 versões). Em **Editar sistema gerado**, escolha **Voltar a uma versão anterior…**, confira as opções daquela data e regenere. Se o sistema foi criado por uma versão mais antiga do gerador, o plugin avisa antes de refazer (o resultado pode mudar um pouco).
 
 ### Parâmetros compartilhados TT_*
 
@@ -124,6 +128,36 @@ O plugin cria e vincula sozinho os parâmetros `TT_` de que precisa: código, am
 5. **Plano de corte e ferragens:** lista de peças com medidas de corte, fitas e veio; consumo de chapas e fitas; ferragens; Excel e CSV de fabricação.
 6. **Otimizar chapas (nesting):** distribui as peças nas chapas e desenha os planos de corte.
 
+### Colunas orgânicas
+
+1. **Orgânicos ▸ Colunas orgânicas:** escolha um estilo (cilíndrica, leque de nervuras, treliça cônica, cogumelo vazado, trompete com capitel prato, pétalas/tulipa, canelada ondulada, lamelas radiais, torcida lobada, ampulheta, inclinada em S, estrela) ou **Minhas últimas opções**.
+2. Ajuste no diálogo, com a pré-visualização 3D:
+   - **Silhueta** (como o diâmetro varia na altura): cilindro, cone, trompete, barriga, ampulheta, cogumelo, **fórmula** ou **desenhada**.
+   - **Seção**: círculo, polígono, lobada, estrela, elipse ou **desenhada**.
+   - **Eixo**: reto, inclinado, arqueado, em S ou **desenhado**.
+   - **Torção, caneluras e ondas** (inclusive ondas em espiral).
+   - **Construção**: cheia, oca (casca), nervuras, treliça em hélices, grelha, lâminas radiais em volta de um núcleo ou pétalas.
+   - **Base e capitel**: disco, placa quadrada ou prato.
+3. Formas desenhadas: depois do OK, o plugin pede as linhas — **seção** = contorno fechado em planta; **silhueta** = meio perfil numa elevação ou corte, e um clique no eixo; **eixo** = linha 3D de baixo para cima. O diálogo reabre para você conferir.
+4. Clique nos pontos onde ficam as colunas (Esc para terminar). Com **Até o nível acima**, cada coluna vai até o próximo nível.
+5. O relatório traz altura, volume, área, comprimento de barras, peso (pela densidade escolhida) e uma esbeltez λ indicativa.
+
+### Coberturas orgânicas
+
+1. **Orgânicos ▸ Coberturas orgânicas:** escolha um estilo (almofada sobre árvores, guarda-chuvas invertidos em funil, guarda-chuvas, membrana tensionada, abóbada envidraçada, sela, ondas com lâminas, plana inclinada, bolhas).
+2. Indique a planta: retângulo, contorno de piso/cobertura/ambiente, linhas desenhadas (contorno fechado, inclusive curvo ou côncavo) ou círculo.
+3. Ajuste a **superfície** (altura do beiral, quanto sobe, direção), a **pele** (contínua, painéis com juntas, lâminas ou sem pele), a **estrutura** (grelha, diagrid ou radial por apoio, com viga de borda) e os **apoios** (árvores com um ou dois níveis de galhos, ou pilares retos, numa grade automática ou nos pontos que você clicar).
+4. **Ligar a colunas existentes** (opcional): selecione as colunas — inclusive as Colunas orgânicas — e escolha ligar no topo, num ponto intermediário (galhos saindo da coluna a uma porcentagem da altura) ou nos dois. A cobertura continua independente.
+5. O relatório traz área coberta e área real da pele, painéis, metros de estrutura e de galhos, alturas, altura livre mínima e os **pontos onde a água pode empoçar**.
+
+### Lâminas de fachada
+
+1. **Orgânicos ▸ Lâminas de fachada:** escolha um estilo (cobre em onda com arco de entrada, aletas torcidas, torção em onda, abertura por atrator, aerofólios aleatórios, tubos com topo em onda, profundidade em onda, losangos em degradê).
+2. Escolha a parede (as lâminas ficam do lado externo) ou as linhas do caminho em planta, retas ou curvas.
+3. Ajuste a **seção** (chapa, tubo, losango, elipse, gota), o **giro ao longo da fachada** (onda, linear, aleatório, atrator ou fórmula com u, h, i, n, x, z), a **torção** da base ao topo, os **recortes** da base e do topo (inclinado, onda, **arco de entrada** ou linha desenhada numa elevação), as **faixas horizontais** e os **conjuntos de material**.
+4. **Estado de abertura (cinético):** de 0% (todas no ângulo base) a 100% (variação completa). Gere estados diferentes para estudos e renders.
+5. Cada lâmina vira uma forma livre numerada. O relatório traz a **lista de corte** (comprimentos iguais agrupados) e a rotação de cada lâmina.
+
 ### Geradores paramétricos
 
 - **Gerador de padrões (estilo Pixy):** clique numa face plana ou curva (parede, piso, forro ou cobertura) e escolha o desenho:
@@ -138,6 +172,13 @@ O plugin cria e vincula sozinho os parâmetros `TT_` de que precisa: código, am
 - **Quadro espacial:** malhas quadrado sobre quadrado (deslocada ou alinhada) e triangular, de 2 a 6 camadas, com nós esféricos e quantitativo de barras.
 - **Painéis cinéticos:** painéis com estado de abertura por regra. Para mudar o estado, use **Editar sistema gerado**.
 - **Temas:** o **Gerador de temas** aplica um visual completo (claro, croqui, maquete branca, monocromático, realista, técnico ou personalizado) à vista ativa, a vistas escolhidas ou a cópias delas. Também há **Paleta de cores** e **Colorir por parâmetro** (filtros e legenda).
+
+---
+
+### Referências visuais e autoteste
+
+- **Projeto ▸ Referências visuais:** guarde dentro do .rvt imagens de referência (moodboard, inspirações, fotos de obra, croquis) com título, notas e etiquetas. Adicione arquivos ou cole com **Ctrl+V**. Com um elemento gerado selecionado, a janela mostra as referências daquele sistema e as novas já ficam ligadas a ele.
+- **Geral ▸ Autoteste do plugin:** depois de instalar ou atualizar, ou quando algo "não gerar nada". Testa as ferramentas num cenário temporário e desfaz tudo; o modelo não muda.
 
 ---
 
